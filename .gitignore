@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Unused platforms (only targeting Windows, Android and Web)
+/ios/
+/macos/
+/linux/
+
+# Claude Code local config
+.claude/
