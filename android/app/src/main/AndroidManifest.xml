@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="sea_wether_app"
+        android:label="Sea Weather"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
