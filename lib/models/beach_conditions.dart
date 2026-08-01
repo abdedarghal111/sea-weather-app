@@ -395,11 +395,29 @@ class BeachConditions {
         reason: 'Tamaño de ola excelente (${swell.toStringAsFixed(1)} m) para surfear',
         score: 0.8 + 0.2 * (1 - ((swell - 1.0) / (2.0 - 1.0) - 0.5).abs() * 2).clamp(0.0, 1.0),
       ));
-    } else {
+    } else if (swell <= 3.0) {
+      checks.add(BeachRating(
+        level: RatingLevel.good,
+        reason: 'Olas grandes (${swell.toStringAsFixed(1)} m), para surfistas expertos',
+        score: 0.6 + 0.2 * (1 - (swell - 2.0) / (3.0 - 2.0)),
+      ));
+    } else if (swell <= 4.5) {
       checks.add(BeachRating(
         level: RatingLevel.ok,
-        reason: 'Olas grandes y algo descontroladas (${swell.toStringAsFixed(1)} m)',
-        score: 0.5,
+        reason: 'Olas muy grandes y descontroladas (${swell.toStringAsFixed(1)} m)',
+        score: 0.4 + 0.2 * (1 - (swell - 3.0) / (4.5 - 3.0)),
+      ));
+    } else if (swell <= 6.0) {
+      checks.add(BeachRating(
+        level: RatingLevel.bad,
+        reason: 'Oleaje de fondo enorme (${swell.toStringAsFixed(1)} m), peligroso',
+        score: 0.2 + 0.2 * (1 - (swell - 4.5) / (6.0 - 4.5)),
+      ));
+    } else {
+      checks.add(BeachRating(
+        level: RatingLevel.veryBad,
+        reason: 'Oleaje de fondo de temporal (${swell.toStringAsFixed(1)} m), muy peligroso',
+        score: 0.1,
       ));
     }
 
