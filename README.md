@@ -2,6 +2,8 @@
 
 Consulta el tiempo y el estado del mar en tus playas y calas favoritas. Cuenta con 5 indicadores sencillos para informar sobre si es visible el fondo marino en la playa, si es buena para surfear, si está bien para ir a la playa, si hay suficiente sol y cuánto viento hay.
 
+Esta aplicación es un proyecto personal, sin ánimo de ofrecer soporte ni garantías. A diferencia de otras apps de tiempo, su objetivo es simplificar la decisión de "¿hoy es buen día para ir a la playa?" reduciéndola a 5 indicadores claros, en vez de mostrar montones de datos meteorológicos y marinos que hay que interpretar uno mismo.
+
 ## Setup
 
 Las carpetas nativas (`android/`, `windows/`, `web/`, ...) no están en el repo — se generan localmente:
