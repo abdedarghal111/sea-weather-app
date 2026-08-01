@@ -50,3 +50,7 @@ app.*.map.json
 
 # Claude Code local config
 .claude/
+
+
+pubspec.lock
+analysis_options.yaml
