@@ -1,19 +1,16 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:hello_world_app/main.dart';
+import 'package:sea_wether_app/main.dart';
 
 void main() {
-  testWidgets('Displays Hello World', (WidgetTester tester) async {
-    await tester.pumpWidget(const MyApp());
+  testWidgets('Empty spots list shows CTA to add first spot', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
 
-    expect(find.text('Hello World'), findsOneWidget);
+    await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Todavía no tienes ninguna cala o playa guardada'), findsOneWidget);
+    expect(find.text('Añadir tu primera cala'), findsOneWidget);
   });
 }
