@@ -27,11 +27,16 @@ class BeachRating {
 /// Puntúa un valor donde MENOS es mejor (ej. viento, oleaje, lluvia),
 /// repartiendo la escala en 5 tramos de 0.2 según los mismos umbrales que
 /// determinan el nivel cualitativo, e interpolando dentro del tramo.
+///
+/// Usa `<` estricto (no `<=`) para que coincida exactamente con las
+/// comparaciones de los niveles cualitativos (`value < t1` => veryGood,
+/// etc.): así, justo en el valor de un umbral, nivel y score cambian de
+/// tramo a la vez en vez de que el score se quede "pegado" al tramo mejor.
 double _ascendingScore(double value, double t1, double t2, double t3, double t4) {
-  if (value <= t1) return 0.9;
-  if (value <= t2) return 0.6 + 0.2 * (1 - (value - t1) / (t2 - t1));
-  if (value <= t3) return 0.4 + 0.2 * (1 - (value - t2) / (t3 - t2));
-  if (value <= t4) return 0.2 + 0.2 * (1 - (value - t3) / (t4 - t3));
+  if (value < t1) return 0.9;
+  if (value < t2) return 0.6 + 0.2 * (1 - (value - t1) / (t2 - t1));
+  if (value < t3) return 0.4 + 0.2 * (1 - (value - t2) / (t3 - t2));
+  if (value < t4) return 0.2 + 0.2 * (1 - (value - t3) / (t4 - t3));
   return 0.1;
 }
 
@@ -177,7 +182,7 @@ class BeachConditions {
           reason: 'Viento muy fuerte (${windSpeedMax.round()} km/h)',
           score: _ascendingScore(windSpeedMax, 15, 20, 30, 40),
         ),
-      if (windGustsMax > 45)
+      if (windGustsMax >= 45)
         BeachRating(
           level: RatingLevel.veryBad,
           reason: 'Rachas muy fuertes remueven el fondo',
@@ -568,7 +573,7 @@ class BeachConditions {
           reason: 'Probabilidad muy alta de lluvia',
           score: _ascendingScore(precipitationProbabilityMax, 10, 20, 50, 75),
         ),
-      if (precipitationSumToday > 10)
+      if (precipitationSumToday >= 10)
         BeachRating(
           level: RatingLevel.veryBad,
           reason: 'Se esperan ${precipitationSumToday.toStringAsFixed(1)} mm de lluvia',
