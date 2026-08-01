@@ -39,15 +39,14 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
-
-# Unused platforms (only targeting Windows, Android and Web)
+# Native platform scaffolding is generated on demand (see README) instead of
+# being committed, so it never drifts out of sync with pubspec.yaml.
+/android/
 /ios/
-/macos/
 /linux/
+/macos/
+/web/
+/windows/
 
 # Claude Code local config
 .claude/

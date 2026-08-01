@@ -1,17 +1,30 @@
-# hello_world_app
+# Sea Wether
 
-A new Flutter project.
+Consulta el tiempo y el estado del mar en tus playas y calas favoritas.
 
-## Getting Started
+## Setup
 
-This project is a starting point for a Flutter application.
+Las carpetas nativas (`android/`, `windows/`, `web/`, ...) no están en el repo — se generan localmente:
 
-A few resources to get you started if this is your first Flutter project:
+```
+flutter pub get
+flutter create --platforms=android,windows,web --org com.example .
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Esto solo hace falta la primera vez (o si borras esas carpetas de nuevo).
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Ejecutar
+
+```
+flutter run -d windows
+flutter run -d chrome
+flutter run -d <id-del-dispositivo-android>
+```
+
+## Build
+
+```
+flutter build windows
+flutter build web
+flutter build apk
+```
