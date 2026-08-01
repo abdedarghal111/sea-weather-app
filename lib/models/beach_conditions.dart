@@ -200,28 +200,34 @@ class BeachConditions {
           reason: 'Rachas moderadas pueden levantar sedimento',
           score: _ascendingScore(windGustsMax, 10, 20, 30, 45),
         ),
-      if (precipitationSumRecent48h > 20)
+      if (precipitationSumRecent48h < 1)
         BeachRating(
-          level: RatingLevel.veryBad,
-          reason: 'Lluvia reciente abundante, agua probablemente turbia',
+          level: RatingLevel.veryGood,
+          reason: 'Sin lluvia reciente',
           score: _ascendingScore(precipitationSumRecent48h, 1, 2, 10, 20),
         )
-      else if (precipitationSumRecent48h > 10)
+      else if (precipitationSumRecent48h < 2)
         BeachRating(
-          level: RatingLevel.bad,
-          reason: 'Lluvia reciente ha podido enturbiar el agua',
+          level: RatingLevel.good,
+          reason: 'Muy poca lluvia reciente',
           score: _ascendingScore(precipitationSumRecent48h, 1, 2, 10, 20),
         )
-      else if (precipitationSumRecent48h > 2)
+      else if (precipitationSumRecent48h < 10)
         BeachRating(
           level: RatingLevel.ok,
           reason: 'Algo de lluvia reciente, puede haber turbidez',
           score: _ascendingScore(precipitationSumRecent48h, 1, 2, 10, 20),
         )
+      else if (precipitationSumRecent48h < 20)
+        BeachRating(
+          level: RatingLevel.bad,
+          reason: 'Lluvia reciente ha podido enturbiar el agua',
+          score: _ascendingScore(precipitationSumRecent48h, 1, 2, 10, 20),
+        )
       else
         BeachRating(
-          level: RatingLevel.veryGood,
-          reason: 'Sin lluvia reciente',
+          level: RatingLevel.veryBad,
+          reason: 'Lluvia reciente abundante, agua probablemente turbia',
           score: _ascendingScore(precipitationSumRecent48h, 1, 2, 10, 20),
         ),
     ];
