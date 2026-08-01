@@ -1,0 +1,239 @@
+name: Build and Release
+
+# Se dispara al hacer push de un tag con formato vX.Y.Z (ej: v1.0.0)
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  # Permite lanzarlo manualmente desde la pestaña Actions
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: "3.44.7"
+  APP_ORG: "es.abderra"
+
+permissions:
+  contents: write
+
+jobs:
+  # ---------------------------------------------------------
+  # ANDROID (.apk y .aab)
+  # ---------------------------------------------------------
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter create --platforms=android --org ${{ env.APP_ORG }} .
+      - run: flutter pub get
+      # Sin keystore configurado: firma con la clave debug, igual que en local
+      # (proyecto open source, sin certificados de firma).
+      - run: flutter build apk --release
+      - run: flutter build appbundle --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-build
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+
+  # ---------------------------------------------------------
+  # iOS (.ipa) - sin firma, requiere runner macOS
+  # ---------------------------------------------------------
+  build-ios:
+    name: Build iOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter create --platforms=ios --org ${{ env.APP_ORG }} .
+      - run: flutter pub get
+      # --no-codesign genera un build sin firmar, listo para instalar solo
+      # con Xcode/TestFlight si luego lo firmas manualmente.
+      - run: flutter build ios --release --no-codesign
+
+      - name: Empaquetar app en .ipa (sin firmar)
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r app-release-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-build
+          path: app-release-unsigned.ipa
+
+  # ---------------------------------------------------------
+  # WINDOWS (.exe empaquetado en .zip)
+  # ---------------------------------------------------------
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter create --platforms=windows --org ${{ env.APP_ORG }} .
+      - run: flutter config --enable-windows-desktop
+      - run: flutter pub get
+      - run: flutter build windows --release
+
+      - name: Comprimir build
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath windows-release.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: windows-release.zip
+
+  # ---------------------------------------------------------
+  # MACOS (.app empaquetado en .zip)
+  # ---------------------------------------------------------
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter create --platforms=macos --org ${{ env.APP_ORG }} .
+      - run: flutter config --enable-macos-desktop
+      - run: flutter pub get
+      - run: flutter build macos --release
+
+      - name: Comprimir build
+        run: |
+          cd build/macos/Build/Products/Release
+          zip -r ../../../../../macos-release.zip *.app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: macos-release.zip
+
+  # ---------------------------------------------------------
+  # LINUX (empaquetado en .tar.gz)
+  # ---------------------------------------------------------
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar dependencias de Linux
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter create --platforms=linux --org ${{ env.APP_ORG }} .
+      - run: flutter config --enable-linux-desktop
+      - run: flutter pub get
+      - run: flutter build linux --release
+
+      - name: Comprimir build
+        run: tar -czvf linux-release.tar.gz -C build/linux/x64/release/bundle .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: linux-release.tar.gz
+
+  # ---------------------------------------------------------
+  # WEB (empaquetado en .zip)
+  # ---------------------------------------------------------
+  build-web:
+    name: Build Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter create --platforms=web --org ${{ env.APP_ORG }} .
+      - run: flutter pub get
+      - run: flutter build web --release
+
+      - name: Comprimir build
+        run: zip -r web-release.zip build/web
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: web-release.zip
+
+  # ---------------------------------------------------------
+  # RELEASE: junta todos los artefactos y crea la Release
+  # ---------------------------------------------------------
+  release:
+    name: Crear Release
+    needs: [build-android, build-ios, build-windows, build-macos, build-linux, build-web]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Listar artefactos descargados
+        run: find artifacts -type f
+
+      - name: Crear/Actualizar Release en GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Sea Wether ${{ github.ref_name }}
+          # generate_release_notes crea el changelog automáticamente
+          generate_release_notes: true
+          body: |
+            Los builds de Android e iOS **no están firmados** (proyecto personal
+            open source, sin certificados de firma): el APK/AAB usa la clave debug
+            y el IPA no tiene codesign, así que necesitarás firmarlos tú mismo o
+            instalarlos por vías que no requieran firma (sideload, TestFlight
+            manual, etc).
+          files: |
+            artifacts/android-build/*.apk
+            artifacts/android-build/*.aab
+            artifacts/ios-build/*.ipa
+            artifacts/windows-build/*.zip
+            artifacts/macos-build/*.zip
+            artifacts/linux-build/*.tar.gz
+            artifacts/web-build/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
