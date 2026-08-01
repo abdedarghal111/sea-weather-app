@@ -1,6 +1,6 @@
 # Sea Wether
 
-Consulta el tiempo y el estado del mar en tus playas y calas favoritas.
+Consulta el tiempo y el estado del mar en tus playas y calas favoritas. Cuenta con 5 indicadores sencillos para informar sobre si es visible el fondo marino en la playa, si es buena para surfear, si está bien para ir a la playa, si hay suficiente sol y cuánto viento hay.
 
 ## Setup
 
@@ -8,7 +8,7 @@ Las carpetas nativas (`android/`, `windows/`, `web/`, ...) no están en el repo 
 
 ```
 flutter pub get
-flutter create --platforms=android,windows,web --org com.example .
+flutter create --platforms=android,windows --org es.abderra .
 ```
 
 Esto solo hace falta la primera vez (o si borras esas carpetas de nuevo).
@@ -28,3 +28,8 @@ flutter build windows
 flutter build web
 flutter build apk
 ```
+
+## Menciones honorables
+
+- [Open-Meteo](https://open-meteo.com/) — previsión meteorológica, marina y geocoding, gratis y sin necesidad de API key.
+- [OpenStreetMap](https://www.openstreetmap.org/) — datos y tiles del mapa.
