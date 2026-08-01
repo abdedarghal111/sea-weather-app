@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../models/beach_conditions.dart';
 import '../models/spot.dart';
+import '../models/spot_conditions_bundle.dart';
 import '../services/conditions_cache.dart';
 import '../services/spots_repository.dart';
 import 'add_spot_screen.dart';
@@ -89,7 +90,7 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(12),
                   title: Text(spot.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: FutureBuilder<BeachConditions>(
+                  subtitle: FutureBuilder<SpotConditionsBundle>(
                     future: _cache.getConditions(spot),
                     builder: (context, snap) {
                       if (!snap.hasData) {
@@ -98,7 +99,7 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
                           child: Text('Cargando...'),
                         );
                       }
-                      final conditions = snap.data!;
+                      final conditions = snap.data!.current;
                       return Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Wrap(
