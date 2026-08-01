@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sea_wether_app/models/beach_conditions.dart';
+import 'package:sea_weather_app/models/beach_conditions.dart';
 
 // Mirrors the private `_ascendingScore` / `_descendingScore` helpers in
 // lib/models/beach_conditions.dart so the exact numeric score can be

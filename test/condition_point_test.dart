@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sea_wether_app/models/trailing_window.dart';
+import 'package:sea_weather_app/models/trailing_window.dart';
 
 void main() {
   group('trailingSum', () {

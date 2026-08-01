@@ -218,7 +218,7 @@ jobs:
       - name: Crear/Actualizar Release en GitHub
         uses: softprops/action-gh-release@v2
         with:
-          name: Sea Wether ${{ github.ref_name }}
+          name: Sea Weather ${{ github.ref_name }}
           # generate_release_notes crea el changelog automáticamente
           generate_release_notes: true
           body: |
@@ -228,8 +228,8 @@ jobs:
             instalarlos por vías que no requieran firma (sideload, TestFlight
             manual, etc).
           files: |
-            artifacts/android-build/*.apk
-            artifacts/android-build/*.aab
+            artifacts/android-build/**/*.apk
+            artifacts/android-build/**/*.aab
             artifacts/ios-build/*.ipa
             artifacts/windows-build/*.zip
             artifacts/macos-build/*.zip

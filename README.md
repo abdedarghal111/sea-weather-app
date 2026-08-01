@@ -1,4 +1,4 @@
-# Sea Wether
+# Sea Weather
 
 Consulta el tiempo y el estado del mar en tus playas y calas favoritas. Cuenta con 5 indicadores sencillos para informar sobre si es visible el fondo marino en la playa, si es buena para surfear, si está bien para ir a la playa, si hay suficiente sol y cuánto viento hay.
 

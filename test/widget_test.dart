@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:sea_wether_app/main.dart';
+import 'package:sea_weather_app/main.dart';
 
 void main() {
   testWidgets('Empty spots list shows CTA to add first spot', (WidgetTester tester) async {
