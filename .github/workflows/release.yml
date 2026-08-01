@@ -17,10 +17,33 @@ permissions:
 
 jobs:
   # ---------------------------------------------------------
+  # VERSION: obtiene la versión a usar en el nombre de los ficheros
+  # ---------------------------------------------------------
+  get-version:
+    name: Determinar versión
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determinar versión de la app
+        id: version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION=$(grep -m1 '^version:' pubspec.yaml | sed 's/version:\s*//' | cut -d'+' -f1 | tr -d ' ')
+          fi
+          echo "Versión detectada: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------
   # ANDROID (.apk y .aab)
   # ---------------------------------------------------------
   build-android:
     name: Build Android
+    needs: get-version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,18 +70,24 @@ jobs:
       - run: flutter build apk --release --target-platform android-arm64
       - run: flutter build appbundle --release --target-platform android-arm64
 
+      - name: Renombrar artefactos con versión
+        run: |
+          VERSION="${{ needs.get-version.outputs.version }}"
+          mkdir -p release-out
+          cp build/app/outputs/flutter-apk/app-release.apk "release-out/android_v${VERSION}.apk"
+          cp build/app/outputs/bundle/release/app-release.aab "release-out/android_v${VERSION}.aab"
+
       - uses: actions/upload-artifact@v4
         with:
           name: android-build
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/bundle/release/app-release.aab
+          path: release-out/*
 
   # ---------------------------------------------------------
   # iOS (.ipa) - sin firma, requiere runner macOS
   # ---------------------------------------------------------
   build-ios:
     name: Build iOS
+    needs: get-version
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -77,20 +106,22 @@ jobs:
 
       - name: Empaquetar app en .ipa (sin firmar)
         run: |
+          VERSION="${{ needs.get-version.outputs.version }}"
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r app-release-unsigned.ipa Payload
+          zip -r "ios_unsigned_v${VERSION}.ipa" Payload
 
       - uses: actions/upload-artifact@v4
         with:
           name: ios-build
-          path: app-release-unsigned.ipa
+          path: ios_unsigned_v*.ipa
 
   # ---------------------------------------------------------
   # WINDOWS (.exe empaquetado en .zip)
   # ---------------------------------------------------------
   build-windows:
     name: Build Windows
+    needs: get-version
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -107,18 +138,19 @@ jobs:
       - run: flutter build windows --release
 
       - name: Comprimir build
-        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath windows-release.zip
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath windows_executable_v${{ needs.get-version.outputs.version }}.zip
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: windows-release.zip
+          path: windows_executable_v*.zip
 
   # ---------------------------------------------------------
   # MACOS (.app empaquetado en .zip)
   # ---------------------------------------------------------
   build-macos:
     name: Build macOS
+    needs: get-version
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -136,19 +168,21 @@ jobs:
 
       - name: Comprimir build
         run: |
+          VERSION="${{ needs.get-version.outputs.version }}"
           cd build/macos/Build/Products/Release
-          zip -r ../../../../../macos-release.zip *.app
+          zip -r "../../../../../macos_executable_v${VERSION}.zip" *.app
 
       - uses: actions/upload-artifact@v4
         with:
           name: macos-build
-          path: macos-release.zip
+          path: macos_executable_v*.zip
 
   # ---------------------------------------------------------
   # LINUX (empaquetado en .tar.gz)
   # ---------------------------------------------------------
   build-linux:
     name: Build Linux
+    needs: get-version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -170,18 +204,19 @@ jobs:
       - run: flutter build linux --release
 
       - name: Comprimir build
-        run: tar -czvf linux-release.tar.gz -C build/linux/x64/release/bundle .
+        run: tar -czvf "linux_executable_v${{ needs.get-version.outputs.version }}.tar.gz" -C build/linux/x64/release/bundle .
 
       - uses: actions/upload-artifact@v4
         with:
           name: linux-build
-          path: linux-release.tar.gz
+          path: linux_executable_v*.tar.gz
 
   # ---------------------------------------------------------
   # WEB (empaquetado en .zip)
   # ---------------------------------------------------------
   build-web:
     name: Build Web
+    needs: get-version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -197,19 +232,19 @@ jobs:
       - run: flutter build web --release
 
       - name: Comprimir build
-        run: zip -r web-release.zip build/web
+        run: zip -r "web_build_v${{ needs.get-version.outputs.version }}.zip" build/web
 
       - uses: actions/upload-artifact@v4
         with:
           name: web-build
-          path: web-release.zip
+          path: web_build_v*.zip
 
   # ---------------------------------------------------------
   # RELEASE: junta todos los artefactos y crea la Release
   # ---------------------------------------------------------
   release:
     name: Crear Release
-    needs: [build-android, build-ios, build-windows, build-macos, build-linux, build-web]
+    needs: [get-version, build-android, build-ios, build-windows, build-macos, build-linux, build-web]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -236,8 +271,8 @@ jobs:
             común hoy en día, así que puede que no instale en algún móvil muy
             antiguo.
           files: |
-            artifacts/android-build/**/*.apk
-            artifacts/android-build/**/*.aab
+            artifacts/android-build/*.apk
+            artifacts/android-build/*.aab
             artifacts/ios-build/*.ipa
             artifacts/windows-build/*.zip
             artifacts/macos-build/*.zip
