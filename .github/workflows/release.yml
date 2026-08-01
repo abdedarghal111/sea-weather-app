@@ -271,8 +271,8 @@ jobs:
             común hoy en día, así que puede que no instale en algún móvil muy
             antiguo.
           files: |
-            artifacts/android-build/*.apk
-            artifacts/android-build/*.aab
+            artifacts/android-build/**/*.apk
+            artifacts/android-build/**/*.aab
             artifacts/ios-build/*.ipa
             artifacts/windows-build/*.zip
             artifacts/macos-build/*.zip
