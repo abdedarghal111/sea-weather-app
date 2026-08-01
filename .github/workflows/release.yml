@@ -40,8 +40,12 @@ jobs:
       - run: flutter pub get
       # Sin keystore configurado: firma con la clave debug, igual que en local
       # (proyecto open source, sin certificados de firma).
-      - run: flutter build apk --release
-      - run: flutter build appbundle --release
+      # Solo se compila para arm64-v8a: cubre la inmensa mayoría de móviles
+      # actuales y evita generar un APK "fat" con las 3 arquitecturas dentro
+      # (pesaba ~50 MB en vez de ~15 MB). No funcionará en dispositivos muy
+      # antiguos de 32-bit (armeabi-v7a) ni en emuladores x86_64.
+      - run: flutter build apk --release --target-platform android-arm64
+      - run: flutter build appbundle --release --target-platform android-arm64
 
       - uses: actions/upload-artifact@v4
         with:
@@ -227,6 +231,10 @@ jobs:
             y el IPA no tiene codesign, así que necesitarás firmarlos tú mismo o
             instalarlos por vías que no requieran firma (sideload, TestFlight
             manual, etc).
+
+            El APK/AAB de Android está compilado solo para la arquitectura más
+            común hoy en día, así que puede que no instale en algún móvil muy
+            antiguo.
           files: |
             artifacts/android-build/**/*.apk
             artifacts/android-build/**/*.aab
