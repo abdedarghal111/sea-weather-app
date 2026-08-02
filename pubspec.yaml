@@ -28,6 +28,8 @@ flutter_launcher_icons:
   image_path: ".github/images/logo.png"
   android: true
   ios: true
+  adaptive_icon_background: "#00D3FF"
+  adaptive_icon_foreground: ".github/images/logo.png"
   macos:
     generate: true
     image_path: ".github/images/logo.png"
