@@ -75,6 +75,16 @@ class RatingTimeSeriesChart extends StatelessWidget {
                         drawVerticalLine: true,
                         verticalInterval: step.toDouble(),
                         horizontalInterval: 0.2,
+                        getDrawingHorizontalLine: (value) => const FlLine(
+                          color: Colors.black,
+                          strokeWidth: 0.4,
+                          dashArray: [3, 6],
+                        ),
+                        getDrawingVerticalLine: (value) => const FlLine(
+                          color: Colors.black,
+                          strokeWidth: 0.4,
+                          dashArray: [3, 6],
+                        ),
                       ),
                       borderData: FlBorderData(show: false),
                       titlesData: FlTitlesData(

@@ -108,6 +108,16 @@ class RawParameterTimeSeriesChart extends StatelessWidget {
                         drawVerticalLine: true,
                         verticalInterval: labelEvery.toDouble(),
                         horizontalInterval: step,
+                        getDrawingHorizontalLine: (value) => const FlLine(
+                          color: Colors.black,
+                          strokeWidth: 0.4,
+                          dashArray: [3, 6],
+                        ),
+                        getDrawingVerticalLine: (value) => const FlLine(
+                          color: Colors.black,
+                          strokeWidth: 0.4,
+                          dashArray: [3, 6],
+                        ),
                       ),
                       borderData: FlBorderData(show: false),
                       titlesData: FlTitlesData(
