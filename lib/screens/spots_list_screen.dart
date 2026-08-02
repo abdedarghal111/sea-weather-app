@@ -54,6 +54,30 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const FaIcon(FontAwesomeIcons.triangleExclamation, size: 48),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No se pudieron cargar tus calas y playas guardadas.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: _reload,
+                      icon: const FaIcon(FontAwesomeIcons.arrowRotateRight),
+                      label: const Text('Reintentar'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
           final spots = snapshot.data ?? [];
           if (spots.isEmpty) {
             return Center(
