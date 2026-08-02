@@ -1,10 +1,23 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show compute;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/spot.dart';
 import '../models/spot_conditions_bundle.dart';
 import 'open_meteo_api.dart';
+
+/// Deserializa el bundle completo (hasta ~384 puntos horarios, cada uno con
+/// su propio [BeachConditions] anidado) fuera del isolate principal: hecho
+/// en el hilo de UI, este `jsonDecode` + reconstrucción de objetos puede
+/// bloquear varios frames en un móvil de gama baja. Debe ser una función de
+/// nivel superior (no un closure/método de instancia) para poder pasarse a
+/// [compute].
+SpotConditionsBundle _decodeBundle(String raw) =>
+    SpotConditionsBundle.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+
+/// Igual que [_decodeBundle] pero para serializar al guardar en caché.
+String _encodeBundle(SpotConditionsBundle bundle) => jsonEncode(bundle.toJson());
 
 /// Cachea las condiciones de cada spot durante [ttl] para no llamar a la API
 /// en cada apertura de pantalla.
@@ -18,7 +31,7 @@ class ConditionsCache {
     final raw = prefs.getString(_key(cacheKey));
     if (raw == null) return null;
     try {
-      return SpotConditionsBundle.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      return await compute(_decodeBundle, raw);
     } catch (_) {
       // Caché de un esquema antiguo o corrupta: se trata como si no existiera.
       return null;
@@ -27,7 +40,8 @@ class ConditionsCache {
 
   Future<void> _store(String cacheKey, SpotConditionsBundle bundle) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key(cacheKey), jsonEncode(bundle.toJson()));
+    final raw = await compute(_encodeBundle, bundle);
+    await prefs.setString(_key(cacheKey), raw);
   }
 
   /// Devuelve condiciones para [spot]: usa la caché si tiene menos de 15
