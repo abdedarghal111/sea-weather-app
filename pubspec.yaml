@@ -1,6 +1,6 @@
 name: sea_weather_app
 description: Consulta el tiempo y el estado del mar en tus playas y calas favoritas.
-version: 0.0.1
+version: 1.0.0
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
