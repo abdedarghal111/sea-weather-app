@@ -10,6 +10,7 @@ import '../widgets/condition_tile.dart';
 import '../widgets/rating_gauge.dart';
 import '../widgets/rating_time_series_chart.dart';
 import '../widgets/raw_parameter_time_series_chart.dart';
+import '../widgets/wind_direction_chart.dart';
 
 class _RawParamSpec {
   final String title;
@@ -63,6 +64,9 @@ const _monthNames = [
 ];
 
 String _hourLabel(DateTime time) => '${time.hour}h';
+
+String _timeLabel(DateTime time) =>
+    '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 
 /// Rango horario mostrado en el panel "Por horas".
 enum HourlyRange { morning, full }
@@ -215,65 +219,93 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     return (points.length - 1).toDouble();
   }
 
-  List<Widget> _buildSeriesSection(
+  /// Número de tarjetas que produce [_buildSeriesItem] para una serie no
+  /// vacía: 5 gráficas de valoración + 1 de dirección de viento + 1 por cada
+  /// [_RawParamSpec] de [_rawParams].
+  int _seriesItemCount(List<ConditionPoint> points) =>
+      points.isEmpty ? 1 : 6 + _rawParams.length;
+
+  /// Construye bajo demanda la tarjeta `index` de una sección de serie
+  /// temporal (a partir de [points]/[times] ya calculados una única vez por
+  /// pestaña). Se usa como `itemBuilder` de un `ListView.builder` en vez de
+  /// construir las ~23 gráficas por adelantado: así solo se calculan (y solo
+  /// se llaman los métodos rateX(), que no son gratis) las que realmente
+  /// entran en pantalla o en su caché de scroll.
+  Widget _buildSeriesItem(
     List<ConditionPoint> points,
-    String Function(DateTime) labelBuilder, {
+    List<DateTime> times,
+    String Function(DateTime) labelBuilder,
+    int index, {
     double? highlightX,
   }) {
     if (points.isEmpty) {
-      return [const Text('Sin datos disponibles.')];
+      return const Text('Sin datos disponibles.');
     }
 
-    final times = points.map((p) => p.time).toList();
-
-    return [
-      RatingTimeSeriesChart(
-        title: 'Agua cristalina',
-        times: times,
-        scores:
-            points.map((p) => p.conditions.rateWaterClarity().score).toList(),
-        labelBuilder: labelBuilder,
-        highlightX: highlightX,
-      ),
-      RatingTimeSeriesChart(
-        title: 'Playa removida',
-        times: times,
-        scores:
-            points.map((p) => p.conditions.ratePlayaRemovida().score).toList(),
-        labelBuilder: labelBuilder,
-        highlightX: highlightX,
-      ),
-      RatingTimeSeriesChart(
-        title: 'Surf',
-        times: times,
-        scores: points.map((p) => p.conditions.rateSurf().score).toList(),
-        labelBuilder: labelBuilder,
-        highlightX: highlightX,
-      ),
-      RatingTimeSeriesChart(
-        title: 'Sol',
-        times: times,
-        scores: points.map((p) => p.conditions.rateSun().score).toList(),
-        labelBuilder: labelBuilder,
-        highlightX: highlightX,
-      ),
-      RatingTimeSeriesChart(
-        title: 'Lluvia',
-        times: times,
-        scores: points.map((p) => p.conditions.rateRain().score).toList(),
-        labelBuilder: labelBuilder,
-        highlightX: highlightX,
-      ),
-      for (final spec in _rawParams)
-        RawParameterTimeSeriesChart(
+    switch (index) {
+      case 0:
+        return RatingTimeSeriesChart(
+          title: 'Agua cristalina',
+          times: times,
+          scores: points
+              .map((p) => p.conditions.rateWaterClarity().score)
+              .toList(),
+          labelBuilder: labelBuilder,
+          highlightX: highlightX,
+        );
+      case 1:
+        return RatingTimeSeriesChart(
+          title: 'Playa removida',
+          times: times,
+          scores: points
+              .map((p) => p.conditions.ratePlayaRemovida().score)
+              .toList(),
+          labelBuilder: labelBuilder,
+          highlightX: highlightX,
+        );
+      case 2:
+        return RatingTimeSeriesChart(
+          title: 'Surf',
+          times: times,
+          scores: points.map((p) => p.conditions.rateSurf().score).toList(),
+          labelBuilder: labelBuilder,
+          highlightX: highlightX,
+        );
+      case 3:
+        return RatingTimeSeriesChart(
+          title: 'Sol',
+          times: times,
+          scores: points.map((p) => p.conditions.rateSun().score).toList(),
+          labelBuilder: labelBuilder,
+          highlightX: highlightX,
+        );
+      case 4:
+        return RatingTimeSeriesChart(
+          title: 'Lluvia',
+          times: times,
+          scores: points.map((p) => p.conditions.rateRain().score).toList(),
+          labelBuilder: labelBuilder,
+          highlightX: highlightX,
+        );
+      case 5:
+        return WindDirectionChart(
+          times: times,
+          directions:
+              points.map((p) => p.conditions.windDirection10m).toList(),
+          labelBuilder: labelBuilder,
+          highlightX: highlightX,
+        );
+      default:
+        final spec = _rawParams[index - 6];
+        return RawParameterTimeSeriesChart(
           title: spec.title,
           unit: spec.unit,
           times: times,
           values: points.map((p) => spec.value(p.conditions)).toList(),
           labelBuilder: labelBuilder,
           highlightX: highlightX,
-        ),
-    ];
+        );
+    }
   }
 
   Widget _errorView() => ListView(
@@ -320,7 +352,18 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
             final hourlyDayCount = _hourlyDayCount(bundle);
             final hourlyOffset = _clampedHourlyOffset(bundle);
             final hourlyPoints = _hourlySlice(bundle, hourlyOffset);
+            final hourlyTimes = hourlyPoints.map((p) => p.time).toList();
+            final hourlyHighlight = _nowPosition(hourlyPoints);
+            final dailyTimes = bundle.daily.map((p) => p.time).toList();
 
+            // Las dos pestañas de serie temporal usan ListView.builder (no
+            // ListView(children: [...])) para que las ~23 gráficas de cada
+            // una (incluidas las llamadas a rateX(), que no son gratis) se
+            // construyan solo bajo demanda según lo que entra en pantalla o
+            // en la caché de scroll, en vez de construirse siempre las tres
+            // pestañas enteras en cada build (p. ej. al cambiar de día u
+            // horario en "Por horas").
+            const hourlyHeaderCount = 4;
             return TabBarView(
               children: [
                 RefreshIndicator(
@@ -329,27 +372,44 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                 ),
                 RefreshIndicator(
                   onRefresh: () => _refresh(force: true),
-                  child: ListView(
+                  child: ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    children: [
-                      _buildHourlyDaySelector(
-                          bundle, hourlyOffset, hourlyDayCount),
-                      const SizedBox(height: 8),
-                      _buildHourlyRangeSelector(),
-                      const SizedBox(height: 12),
-                      ..._buildSeriesSection(
-                        hourlyPoints,
-                        _hourLabel,
-                        highlightX: _nowPosition(hourlyPoints),
-                      ),
-                    ],
+                    itemCount:
+                        hourlyHeaderCount + _seriesItemCount(hourlyPoints),
+                    itemBuilder: (context, index) {
+                      switch (index) {
+                        case 0:
+                          return _buildHourlyDaySelector(
+                              bundle, hourlyOffset, hourlyDayCount);
+                        case 1:
+                          return const SizedBox(height: 8);
+                        case 2:
+                          return _buildHourlyRangeSelector();
+                        case 3:
+                          return const SizedBox(height: 12);
+                        default:
+                          return _buildSeriesItem(
+                            hourlyPoints,
+                            hourlyTimes,
+                            _hourLabel,
+                            index - hourlyHeaderCount,
+                            highlightX: hourlyHighlight,
+                          );
+                      }
+                    },
                   ),
                 ),
                 RefreshIndicator(
                   onRefresh: () => _refresh(force: true),
-                  child: ListView(
+                  child: ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    children: _buildSeriesSection(bundle.daily, _dayLabel),
+                    itemCount: _seriesItemCount(bundle.daily),
+                    itemBuilder: (context, index) => _buildSeriesItem(
+                      bundle.daily,
+                      dailyTimes,
+                      _dayLabel,
+                      index,
+                    ),
                   ),
                 ),
               ],
@@ -489,6 +549,16 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
               value: conditions.swellWavePeriod != null
                   ? '${conditions.swellWavePeriod!.round()} s'
                   : '—',
+            ),
+            ConditionTile(
+              icon: FontAwesomeIcons.solidSun,
+              label: 'Amanecer',
+              value: conditions.sunrise != null ? _timeLabel(conditions.sunrise!) : '—',
+            ),
+            ConditionTile(
+              icon: FontAwesomeIcons.solidMoon,
+              label: 'Atardecer',
+              value: conditions.sunset != null ? _timeLabel(conditions.sunset!) : '—',
             ),
           ],
         ),
