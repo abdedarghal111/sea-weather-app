@@ -61,6 +61,9 @@ jobs:
 
       - run: flutter create --platforms=android --org ${{ env.APP_ORG }} .
       - run: flutter pub get
+      # flutter create deja el icono por defecto de Flutter: hay que
+      # regenerarlo a partir de la config de flutter_launcher_icons.
+      - run: dart run flutter_launcher_icons
       # Sin keystore configurado: firma con la clave debug, igual que en local
       # (proyecto open source, sin certificados de firma).
       # Solo se compila para arm64-v8a: cubre la inmensa mayoría de móviles
@@ -100,6 +103,9 @@ jobs:
 
       - run: flutter create --platforms=ios --org ${{ env.APP_ORG }} .
       - run: flutter pub get
+      # flutter create deja el icono por defecto de Flutter: hay que
+      # regenerarlo a partir de la config de flutter_launcher_icons.
+      - run: dart run flutter_launcher_icons
       # --no-codesign genera un build sin firmar, listo para instalar solo
       # con Xcode/TestFlight si luego lo firmas manualmente.
       - run: flutter build ios --release --no-codesign
@@ -135,6 +141,9 @@ jobs:
       - run: flutter create --platforms=windows --org ${{ env.APP_ORG }} .
       - run: flutter config --enable-windows-desktop
       - run: flutter pub get
+      # flutter create deja el icono por defecto de Flutter: hay que
+      # regenerarlo a partir de la config de flutter_launcher_icons.
+      - run: dart run flutter_launcher_icons
       - run: flutter build windows --release
 
       - name: Comprimir build
@@ -164,6 +173,9 @@ jobs:
       - run: flutter create --platforms=macos --org ${{ env.APP_ORG }} .
       - run: flutter config --enable-macos-desktop
       - run: flutter pub get
+      # flutter create deja el icono por defecto de Flutter: hay que
+      # regenerarlo a partir de la config de flutter_launcher_icons.
+      - run: dart run flutter_launcher_icons
       - run: flutter build macos --release
 
       - name: Comprimir build
@@ -229,6 +241,9 @@ jobs:
 
       - run: flutter create --platforms=web --org ${{ env.APP_ORG }} .
       - run: flutter pub get
+      # flutter create deja el icono por defecto de Flutter: hay que
+      # regenerarlo a partir de la config de flutter_launcher_icons.
+      - run: dart run flutter_launcher_icons
       - run: flutter build web --release
 
       - name: Comprimir build
