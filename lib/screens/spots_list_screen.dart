@@ -149,8 +149,15 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
                   trailing: IconButton(
                     icon: const FaIcon(FontAwesomeIcons.trash),
                     onPressed: () async {
-                      await _repository.removeSpot(spot.id);
-                      _reload();
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        await _repository.removeSpot(spot.id);
+                        _reload();
+                      } catch (_) {
+                        messenger.showSnackBar(
+                          const SnackBar(content: Text('No se pudo eliminar la cala.')),
+                        );
+                      }
                     },
                   ),
                   onTap: () => Navigator.of(context).push(

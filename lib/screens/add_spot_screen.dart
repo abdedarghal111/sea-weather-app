@@ -56,13 +56,21 @@ class _AddSpotScreenState extends State<AddSpotScreen> with SingleTickerProvider
   }
 
   Future<void> _saveSpot(String name, double latitude, double longitude) async {
-    await _repository.addSpot(Spot(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: name,
-      latitude: latitude,
-      longitude: longitude,
-    ));
-    if (mounted) Navigator.of(context).pop(true);
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _repository.addSpot(Spot(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: name,
+        latitude: latitude,
+        longitude: longitude,
+      ));
+      navigator.pop(true);
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No se pudo guardar la cala.')),
+      );
+    }
   }
 
   @override
