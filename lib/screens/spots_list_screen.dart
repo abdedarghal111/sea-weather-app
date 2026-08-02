@@ -93,6 +93,12 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
                   subtitle: FutureBuilder<SpotConditionsBundle>(
                     future: _cache.getConditions(spot),
                     builder: (context, snap) {
+                      if (snap.hasError) {
+                        return const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Text('No se pudo obtener el tiempo'),
+                        );
+                      }
                       if (!snap.hasData) {
                         return const Padding(
                           padding: EdgeInsets.only(top: 8),
