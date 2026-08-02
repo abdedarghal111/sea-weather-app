@@ -8,7 +8,7 @@ class SpotConditionsBundle {
   /// Versión del esquema de caché: al cambiar la forma de este bundle (p.ej.
   /// añadir listas anidadas nuevas) se sube este número para invalidar
   /// cachés antiguas de forma explícita, además del try/catch de parseo.
-  static const schemaVersion = 3;
+  static const schemaVersion = 6;
 
   final BeachConditions current;
   final List<ConditionPoint> hourly;

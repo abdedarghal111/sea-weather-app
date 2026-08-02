@@ -75,6 +75,13 @@ class BeachConditions {
   final double? swellWaveHeight;
   final double? swellWavePeriod;
   final double? seaSurfaceTemperature;
+  final DateTime? sunrise;
+  final DateTime? sunset;
+  // Grados de los que sopla el viento (convención meteorológica: 0/360 =
+  // viento del norte). Solo se rellena en los puntos horarios; de ahí sale
+  // la flecha de WindDirectionChart, que la voltea 180° para mostrar hacia
+  // dónde se dirige el viento en vez de de dónde viene.
+  final double? windDirection10m;
   final DateTime fetchedAt;
 
   const BeachConditions({
@@ -97,6 +104,9 @@ class BeachConditions {
     this.swellWaveHeight,
     this.swellWavePeriod,
     this.seaSurfaceTemperature,
+    this.sunrise,
+    this.sunset,
+    this.windDirection10m,
     required this.fetchedAt,
   });
 
@@ -120,6 +130,9 @@ class BeachConditions {
         'swellWaveHeight': swellWaveHeight,
         'swellWavePeriod': swellWavePeriod,
         'seaSurfaceTemperature': seaSurfaceTemperature,
+        'sunrise': sunrise?.toIso8601String(),
+        'sunset': sunset?.toIso8601String(),
+        'windDirection10m': windDirection10m,
         'fetchedAt': fetchedAt.toIso8601String(),
       };
 
@@ -143,6 +156,9 @@ class BeachConditions {
         swellWaveHeight: (json['swellWaveHeight'] as num?)?.toDouble(),
         swellWavePeriod: (json['swellWavePeriod'] as num?)?.toDouble(),
         seaSurfaceTemperature: (json['seaSurfaceTemperature'] as num?)?.toDouble(),
+        sunrise: (json['sunrise'] as String?) != null ? DateTime.parse(json['sunrise'] as String) : null,
+        sunset: (json['sunset'] as String?) != null ? DateTime.parse(json['sunset'] as String) : null,
+        windDirection10m: (json['windDirection10m'] as num?)?.toDouble(),
         fetchedAt: DateTime.parse(json['fetchedAt'] as String),
       );
 

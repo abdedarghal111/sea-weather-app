@@ -28,9 +28,10 @@ class OpenMeteoApi {
       '?latitude=${spot.latitude}&longitude=${spot.longitude}'
       '&current=temperature_2m,apparent_temperature,cloud_cover,weather_code'
       '&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,'
-      'weather_code,cloud_cover,wind_speed_10m,wind_gusts_10m,uv_index'
+      'weather_code,cloud_cover,wind_speed_10m,wind_gusts_10m,uv_index,wind_direction_10m'
       '&daily=temperature_2m_max,apparent_temperature_max,precipitation_probability_max,precipitation_sum,'
-      'wind_speed_10m_max,wind_gusts_10m_max,uv_index_max,sunshine_duration,weather_code,cloud_cover_mean'
+      'wind_speed_10m_max,wind_gusts_10m_max,uv_index_max,sunshine_duration,weather_code,cloud_cover_mean,'
+      'sunrise,sunset,wind_direction_10m_dominant'
       '&timezone=auto&forecast_days=$_forecastDays&past_days=$_pastDays',
     );
     final marineUri = Uri.parse(
@@ -68,6 +69,9 @@ class OpenMeteoApi {
     final dailySunshine = (daily['sunshine_duration'] as List<dynamic>).cast<num>();
     final dailyWeatherCode = (daily['weather_code'] as List<dynamic>).cast<num>();
     final dailyCloudCover = (daily['cloud_cover_mean'] as List<dynamic>).cast<num>();
+    final dailySunrise = (daily['sunrise'] as List<dynamic>).cast<String>();
+    final dailySunset = (daily['sunset'] as List<dynamic>).cast<String>();
+    final dailyWindDirection = (daily['wind_direction_10m_dominant'] as List<dynamic>).cast<num>();
     final dailyWaveMax = (marineDaily?['wave_height_max'] as List<dynamic>?)?.cast<num?>();
 
     final hourlyTime = (hourly['time'] as List<dynamic>).cast<String>();
@@ -79,6 +83,7 @@ class OpenMeteoApi {
     final hourlyCloudCover = (hourly['cloud_cover'] as List<dynamic>).cast<num>();
     final hourlyWind = (hourly['wind_speed_10m'] as List<dynamic>).cast<num>();
     final hourlyGusts = (hourly['wind_gusts_10m'] as List<dynamic>).cast<num>();
+    final hourlyWindDirection = (hourly['wind_direction_10m'] as List<dynamic>).cast<num>();
     final hourlyUv = (hourly['uv_index'] as List<dynamic>).cast<num>();
     final hourlyWave = (marineHourly?['wave_height'] as List<dynamic>?)?.cast<num?>();
     final hourlyWindWave = (marineHourly?['wind_wave_height'] as List<dynamic>?)?.cast<num?>();
@@ -182,6 +187,9 @@ class OpenMeteoApi {
       double? swellWaveHeight,
       double? swellWavePeriod,
       double? seaSurfaceTemperature,
+      DateTime? sunrise,
+      DateTime? sunset,
+      double? windDirection10m,
       required DateTime fetchedAt,
     }) =>
         BeachConditions(
@@ -204,6 +212,9 @@ class OpenMeteoApi {
           swellWaveHeight: swellWaveHeight,
           swellWavePeriod: swellWavePeriod,
           seaSurfaceTemperature: seaSurfaceTemperature,
+          sunrise: sunrise,
+          sunset: sunset,
+          windDirection10m: windDirection10m,
           fetchedAt: fetchedAt,
         );
 
@@ -227,6 +238,8 @@ class OpenMeteoApi {
       swellWavePeriod: (marineCurrent?['swell_wave_period'] as num?)?.toDouble(),
       seaSurfaceTemperature: (marineCurrent?['sea_surface_temperature'] as num?)?.toDouble(),
       waveHeightMaxRecent48h: recentMarineDailyAverage(todayIndex),
+      sunrise: DateTime.parse(dailySunrise[todayIndex]),
+      sunset: DateTime.parse(dailySunset[todayIndex]),
       fetchedAt: DateTime.now(),
     );
 
@@ -263,6 +276,9 @@ class OpenMeteoApi {
           swellWavePeriod: marineAt(hourlySwellPeriod, i)?.toDouble(),
           seaSurfaceTemperature: marineAt(hourlySeaTemp, i)?.toDouble(),
           waveHeightMaxRecent48h: trailingMarineMax(hourlyWave, i, 48),
+          sunrise: DateTime.parse(dailySunrise[i ~/ 24]),
+          sunset: DateTime.parse(dailySunset[i ~/ 24]),
+          windDirection10m: hourlyWindDirection[i].toDouble(),
           fetchedAt: DateTime.parse(hourlyTime[i]),
         ),
       ));
@@ -293,6 +309,9 @@ class OpenMeteoApi {
           swellWavePeriod: dailyMarineMax(hourlySwellPeriod, d),
           seaSurfaceTemperature: dailyMarineMean(hourlySeaTemp, d),
           waveHeightMaxRecent48h: recentMarineDailyAverage(d),
+          sunrise: DateTime.parse(dailySunrise[d]),
+          sunset: DateTime.parse(dailySunset[d]),
+          windDirection10m: dailyWindDirection[d].toDouble(),
           fetchedAt: DateTime.parse(dailyTime[d]),
         ),
       ));
