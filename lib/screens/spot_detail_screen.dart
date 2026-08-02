@@ -57,10 +57,33 @@ double? _swellHeight(BeachConditions c) => c.swellWaveHeight;
 double? _swellPeriod(BeachConditions c) => c.swellWavePeriod;
 
 const _weekdayNames = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+const _monthNames = [
+  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+];
 
 String _hourLabel(DateTime time) => '${time.hour}h';
 
-String _dayLabel(DateTime time) => _weekdayNames[time.weekday - 1];
+/// Rango horario mostrado en el panel "Por horas".
+enum HourlyRange { morning, full }
+
+const _morningStartHour = 8;
+const _morningEndHour = 22;
+
+String _dayLabel(DateTime time) =>
+    '${_weekdayNames[time.weekday - 1]} ${time.day}';
+
+/// Cabecera del selector de día del panel "Por horas": "Hoy", "Mañana" o
+/// "lun 4 ago" para el resto.
+String _hourlyDayHeaderLabel(DateTime date) {
+  final today = DateTime.now();
+  final difference = DateTime(date.year, date.month, date.day)
+      .difference(DateTime(today.year, today.month, today.day))
+      .inDays;
+  if (difference == 0) return 'Hoy';
+  if (difference == 1) return 'Mañana';
+  return '${_weekdayNames[date.weekday - 1]} ${date.day} ${_monthNames[date.month - 1]}';
+}
 
 class SpotDetailScreen extends StatefulWidget {
   final Spot spot;
@@ -74,6 +97,8 @@ class SpotDetailScreen extends StatefulWidget {
 class _SpotDetailScreenState extends State<SpotDetailScreen> {
   final _cache = ConditionsCache();
   Future<SpotConditionsBundle>? _future;
+  int _hourlyDayOffset = 0;
+  HourlyRange _hourlyRange = HourlyRange.morning;
 
   @override
   void initState() {
@@ -92,6 +117,75 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     final minutes = DateTime.now().difference(fetchedAt).inMinutes;
     if (minutes < 1) return 'actualizado justo ahora';
     return 'actualizado hace $minutes min';
+  }
+
+  /// Días completos que hay disponibles en [SpotConditionsBundle.hourly].
+  int _hourlyDayCount(SpotConditionsBundle bundle) => bundle.hourly.length ~/ 24;
+
+  /// [_hourlyDayOffset] recortado al rango de días realmente disponible.
+  int _clampedHourlyOffset(SpotConditionsBundle bundle) {
+    final dayCount = _hourlyDayCount(bundle);
+    return _hourlyDayOffset.clamp(0, dayCount > 0 ? dayCount - 1 : 0);
+  }
+
+  List<ConditionPoint> _hourlySlice(SpotConditionsBundle bundle, int offset) {
+    final day = bundle.hourly.skip(offset * 24).take(24).toList();
+    if (_hourlyRange == HourlyRange.full) return day;
+    return day
+        .where((p) =>
+            p.time.hour >= _morningStartHour && p.time.hour <= _morningEndHour)
+        .toList();
+  }
+
+  Widget _buildHourlyRangeSelector() {
+    return Center(
+      child: SegmentedButton<HourlyRange>(
+        segments: const [
+          ButtonSegment(
+            value: HourlyRange.morning,
+            label: Text('Mañana'),
+            icon: FaIcon(FontAwesomeIcons.sun, size: 14),
+          ),
+          ButtonSegment(
+            value: HourlyRange.full,
+            label: Text('24 horas'),
+            icon: FaIcon(FontAwesomeIcons.clock, size: 14),
+          ),
+        ],
+        selected: {_hourlyRange},
+        onSelectionChanged: (selection) =>
+            setState(() => _hourlyRange = selection.first),
+      ),
+    );
+  }
+
+  Widget _buildHourlyDaySelector(SpotConditionsBundle bundle, int offset, int dayCount) {
+    final headerDate = dayCount > 0 ? bundle.hourly[offset * 24].time : DateTime.now();
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        IconButton(
+          icon: const FaIcon(FontAwesomeIcons.chevronLeft, size: 16),
+          onPressed:
+              offset > 0 ? () => setState(() => _hourlyDayOffset = offset - 1) : null,
+        ),
+        SizedBox(
+          width: 120,
+          child: Text(
+            _hourlyDayHeaderLabel(headerDate),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ),
+        IconButton(
+          icon: const FaIcon(FontAwesomeIcons.chevronRight, size: 16),
+          onPressed: offset < dayCount - 1
+              ? () => setState(() => _hourlyDayOffset = offset + 1)
+              : null,
+        ),
+      ],
+    );
   }
 
   List<Widget> _buildSeriesSection(
@@ -189,6 +283,8 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
 
             final bundle = snapshot.data!;
             final conditions = bundle.current;
+            final hourlyDayCount = _hourlyDayCount(bundle);
+            final hourlyOffset = _clampedHourlyOffset(bundle);
 
             return TabBarView(
               children: [
@@ -200,7 +296,15 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                   onRefresh: () => _refresh(force: true),
                   child: ListView(
                     padding: const EdgeInsets.all(16),
-                    children: _buildSeriesSection(bundle.hourly, _hourLabel),
+                    children: [
+                      _buildHourlyDaySelector(
+                          bundle, hourlyOffset, hourlyDayCount),
+                      const SizedBox(height: 8),
+                      _buildHourlyRangeSelector(),
+                      const SizedBox(height: 12),
+                      ..._buildSeriesSection(
+                          _hourlySlice(bundle, hourlyOffset), _hourLabel),
+                    ],
                   ),
                 ),
                 RefreshIndicator(

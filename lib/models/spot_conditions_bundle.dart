@@ -1,9 +1,9 @@
 import 'condition_point.dart';
 import 'beach_conditions.dart';
 
-/// Agrupa el snapshot "ahora mismo" junto con las series por horas (hoy) y
-/// por días (próxima semana) para un spot, todo obtenido en las mismas dos
-/// llamadas a Open-Meteo.
+/// Agrupa el snapshot "ahora mismo" junto con la serie por horas (de hoy en
+/// adelante) y por días (próximos días) para un spot, todo obtenido en las
+/// mismas dos llamadas a Open-Meteo.
 class SpotConditionsBundle {
   /// Versión del esquema de caché: al cambiar la forma de este bundle (p.ej.
   /// añadir listas anidadas nuevas) se sube este número para invalidar
