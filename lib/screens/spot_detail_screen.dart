@@ -110,7 +110,12 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     setState(() {
       _future = _cache.getConditions(widget.spot, forceRefresh: force);
     });
-    await _future;
+    try {
+      await _future;
+    } catch (_) {
+      // El FutureBuilder ya muestra el estado de error; aquí solo evitamos
+      // que quede como excepción asíncrona sin capturar.
+    }
   }
 
   String _minutesAgoLabel(DateTime fetchedAt) {
