@@ -59,7 +59,7 @@ jobs:
           channel: stable
           cache: true
 
-      - run: flutter create --platforms=android --org ${{ env.APP_ORG }} .
+      - run: flutter create --platforms=android,ios,linux,macos,web,windows --org ${{ env.APP_ORG }} .
       - run: flutter pub get
       - run: dart run flutter_launcher_icons
       # Sin keystore configurado: firma con la clave debug, igual que en local
@@ -99,7 +99,7 @@ jobs:
           channel: stable
           cache: true
 
-      - run: flutter create --platforms=ios --org ${{ env.APP_ORG }} .
+      - run: flutter create --platforms=android,ios,linux,macos,web,windows --org ${{ env.APP_ORG }} .
       - run: flutter pub get
       - run: dart run flutter_launcher_icons
       # --no-codesign genera un build sin firmar, listo para instalar solo
@@ -134,7 +134,7 @@ jobs:
           channel: stable
           cache: true
 
-      - run: flutter create --platforms=windows --org ${{ env.APP_ORG }} .
+      - run: flutter create --platforms=android,ios,linux,macos,web,windows --org ${{ env.APP_ORG }} .
       - run: flutter config --enable-windows-desktop
       - run: flutter pub get
       - run: dart run flutter_launcher_icons
@@ -164,7 +164,7 @@ jobs:
           channel: stable
           cache: true
 
-      - run: flutter create --platforms=macos --org ${{ env.APP_ORG }} .
+      - run: flutter create --platforms=android,ios,linux,macos,web,windows --org ${{ env.APP_ORG }} .
       - run: flutter config --enable-macos-desktop
       - run: flutter pub get
       - run: dart run flutter_launcher_icons
@@ -231,7 +231,7 @@ jobs:
           channel: stable
           cache: true
 
-      - run: flutter create --platforms=web --org ${{ env.APP_ORG }} .
+      - run: flutter create --platforms=android,ios,linux,macos,web,windows --org ${{ env.APP_ORG }} .
       - run: flutter pub get
       - run: dart run flutter_launcher_icons
       - run: flutter build web --release
