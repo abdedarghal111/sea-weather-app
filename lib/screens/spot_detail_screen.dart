@@ -188,10 +188,33 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     );
   }
 
+  /// Posición fraccionaria (p. ej. 2.5 = a mitad de camino entre el punto 2
+  /// y el 3) del instante actual dentro de [points], o `null` si "ahora"
+  /// cae fuera del rango mostrado (se está viendo otro día, o la hora
+  /// actual queda fuera del filtro "Mañana").
+  double? _nowPosition(List<ConditionPoint> points) {
+    if (points.isEmpty) return null;
+    final now = DateTime.now();
+    if (now.isBefore(points.first.time) || now.isAfter(points.last.time)) {
+      return null;
+    }
+    for (var i = 0; i < points.length - 1; i++) {
+      final t0 = points[i].time;
+      final t1 = points[i + 1].time;
+      if (!now.isBefore(t0) && now.isBefore(t1)) {
+        final fraction =
+            now.difference(t0).inSeconds / t1.difference(t0).inSeconds;
+        return i + fraction;
+      }
+    }
+    return (points.length - 1).toDouble();
+  }
+
   List<Widget> _buildSeriesSection(
     List<ConditionPoint> points,
-    String Function(DateTime) labelBuilder,
-  ) {
+    String Function(DateTime) labelBuilder, {
+    double? highlightX,
+  }) {
     if (points.isEmpty) {
       return [const Text('Sin datos disponibles.')];
     }
@@ -205,6 +228,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
         scores:
             points.map((p) => p.conditions.rateWaterClarity().score).toList(),
         labelBuilder: labelBuilder,
+        highlightX: highlightX,
       ),
       RatingTimeSeriesChart(
         title: 'Playa removida',
@@ -212,24 +236,28 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
         scores:
             points.map((p) => p.conditions.ratePlayaRemovida().score).toList(),
         labelBuilder: labelBuilder,
+        highlightX: highlightX,
       ),
       RatingTimeSeriesChart(
         title: 'Surf',
         times: times,
         scores: points.map((p) => p.conditions.rateSurf().score).toList(),
         labelBuilder: labelBuilder,
+        highlightX: highlightX,
       ),
       RatingTimeSeriesChart(
         title: 'Sol',
         times: times,
         scores: points.map((p) => p.conditions.rateSun().score).toList(),
         labelBuilder: labelBuilder,
+        highlightX: highlightX,
       ),
       RatingTimeSeriesChart(
         title: 'Lluvia',
         times: times,
         scores: points.map((p) => p.conditions.rateRain().score).toList(),
         labelBuilder: labelBuilder,
+        highlightX: highlightX,
       ),
       for (final spec in _rawParams)
         RawParameterTimeSeriesChart(
@@ -238,6 +266,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
           times: times,
           values: points.map((p) => spec.value(p.conditions)).toList(),
           labelBuilder: labelBuilder,
+          highlightX: highlightX,
         ),
     ];
   }
@@ -285,6 +314,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
             final conditions = bundle.current;
             final hourlyDayCount = _hourlyDayCount(bundle);
             final hourlyOffset = _clampedHourlyOffset(bundle);
+            final hourlyPoints = _hourlySlice(bundle, hourlyOffset);
 
             return TabBarView(
               children: [
@@ -303,7 +333,10 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                       _buildHourlyRangeSelector(),
                       const SizedBox(height: 12),
                       ..._buildSeriesSection(
-                          _hourlySlice(bundle, hourlyOffset), _hourLabel),
+                        hourlyPoints,
+                        _hourLabel,
+                        highlightX: _nowPosition(hourlyPoints),
+                      ),
                     ],
                   ),
                 ),

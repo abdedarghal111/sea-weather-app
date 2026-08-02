@@ -55,6 +55,12 @@ class RawParameterTimeSeriesChart extends StatelessWidget {
   final List<double?> values;
   final String Function(DateTime time) labelBuilder;
 
+  /// Posición fraccionaria en [times] (p. ej. 2.5 = a medio camino entre el
+  /// punto 2 y el 3) a marcar con una línea vertical roja, típicamente la
+  /// hora y minuto actuales; `null` si no aplica (el rango mostrado no
+  /// incluye "ahora").
+  final double? highlightX;
+
   const RawParameterTimeSeriesChart({
     super.key,
     required this.title,
@@ -62,6 +68,7 @@ class RawParameterTimeSeriesChart extends StatelessWidget {
     required this.times,
     required this.values,
     required this.labelBuilder,
+    this.highlightX,
   });
 
   static const _pointSpacing = 44.0;
@@ -120,6 +127,18 @@ class RawParameterTimeSeriesChart extends StatelessWidget {
                         ),
                       ),
                       borderData: FlBorderData(show: false),
+                      extraLinesData: ExtraLinesData(
+                        verticalLines: [
+                          if (highlightX != null &&
+                              highlightX! >= 0 &&
+                              highlightX! <= times.length - 1)
+                            VerticalLine(
+                              x: highlightX!,
+                              color: Colors.red,
+                              strokeWidth: 1,
+                            ),
+                        ],
+                      ),
                       titlesData: FlTitlesData(
                         topTitles: const AxisTitles(
                             sideTitles: SideTitles(showTitles: false)),
