@@ -16,9 +16,24 @@ dependencies:
   shared_preferences: ^2.5.5
 
 dev_dependencies:
+  flutter_launcher_icons: ^0.14.4
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
 
 flutter:
   uses-material-design: true
+
+flutter_launcher_icons:
+  image_path: ".github/images/logo.png"
+  android: true
+  ios: true
+  macos:
+    generate: true
+    image_path: ".github/images/logo.png"
+  windows:
+    generate: true
+    image_path: ".github/images/logo.png"
+  web:
+    generate: true
+    image_path: ".github/images/logo.png"
