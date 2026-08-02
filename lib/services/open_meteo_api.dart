@@ -8,12 +8,14 @@ import '../models/spot.dart';
 import '../models/spot_conditions_bundle.dart';
 import '../models/trailing_window.dart';
 
+const _requestTimeout = Duration(seconds: 15);
+
 class OpenMeteoApi {
-  // Con past_days=2 y forecast_days=7 los arrays diarios traen 9 entradas
-  // [anteayer, ayer, hoy, +1, +2, +3, +4, +5, +6] y los horarios 9*24 horas
-  // en el mismo orden cronológico: hoy empieza en el índice pastDays*24.
+  // Con past_days=2 y forecast_days=16 los arrays diarios traen 18 entradas
+  // [anteayer, ayer, hoy, +1...+15] y los horarios 18*24 horas en el mismo
+  // orden cronológico: hoy empieza en el índice pastDays*24.
   static const _pastDays = 2;
-  static const _forecastDays = 7;
+  static const _forecastDays = 16; // máximo que permite Open-Meteo
 
   static Future<BeachConditions> fetchConditions(Spot spot) async {
     final bundle = await fetchConditionsBundle(spot);
@@ -41,8 +43,8 @@ class OpenMeteoApi {
     );
 
     final responses = await Future.wait([
-      http.get(forecastUri),
-      http.get(marineUri),
+      http.get(forecastUri).timeout(_requestTimeout),
+      http.get(marineUri).timeout(_requestTimeout),
     ]);
 
     final forecast = jsonDecode(responses[0].body) as Map<String, dynamic>;
@@ -66,7 +68,7 @@ class OpenMeteoApi {
     final dailySunshine = (daily['sunshine_duration'] as List<dynamic>).cast<num>();
     final dailyWeatherCode = (daily['weather_code'] as List<dynamic>).cast<num>();
     final dailyCloudCover = (daily['cloud_cover_mean'] as List<dynamic>).cast<num>();
-    final dailyWaveMax = (marineDaily?['wave_height_max'] as List<dynamic>?)?.cast<num>();
+    final dailyWaveMax = (marineDaily?['wave_height_max'] as List<dynamic>?)?.cast<num?>();
 
     final hourlyTime = (hourly['time'] as List<dynamic>).cast<String>();
     final hourlyTemp = (hourly['temperature_2m'] as List<dynamic>).cast<num>();
@@ -78,11 +80,11 @@ class OpenMeteoApi {
     final hourlyWind = (hourly['wind_speed_10m'] as List<dynamic>).cast<num>();
     final hourlyGusts = (hourly['wind_gusts_10m'] as List<dynamic>).cast<num>();
     final hourlyUv = (hourly['uv_index'] as List<dynamic>).cast<num>();
-    final hourlyWave = (marineHourly?['wave_height'] as List<dynamic>?)?.cast<num>();
-    final hourlyWindWave = (marineHourly?['wind_wave_height'] as List<dynamic>?)?.cast<num>();
-    final hourlySwellHeight = (marineHourly?['swell_wave_height'] as List<dynamic>?)?.cast<num>();
-    final hourlySwellPeriod = (marineHourly?['swell_wave_period'] as List<dynamic>?)?.cast<num>();
-    final hourlySeaTemp = (marineHourly?['sea_surface_temperature'] as List<dynamic>?)?.cast<num>();
+    final hourlyWave = (marineHourly?['wave_height'] as List<dynamic>?)?.cast<num?>();
+    final hourlyWindWave = (marineHourly?['wind_wave_height'] as List<dynamic>?)?.cast<num?>();
+    final hourlySwellHeight = (marineHourly?['swell_wave_height'] as List<dynamic>?)?.cast<num?>();
+    final hourlySwellPeriod = (marineHourly?['swell_wave_period'] as List<dynamic>?)?.cast<num?>();
+    final hourlySeaTemp = (marineHourly?['sea_surface_temperature'] as List<dynamic>?)?.cast<num?>();
 
     final todayIndex = _pastDays;
 
@@ -99,37 +101,65 @@ class OpenMeteoApi {
       return trailingSum(values, dayIndex - 1, 2);
     }
 
+    // El modelo marino solo pronostica de forma fiable unos pocos días: más
+    // allá de su horizonte real, la API sigue devolviendo arrays del tamaño
+    // pedido (forecast_days=16) pero rellenos de null. Todo lo que lee estos
+    // arrays debe saltarse esas entradas en vez de asumir que "dentro de
+    // rango" implica "con dato".
     double? recentMarineDailyAverage(int dayIndex) {
       final values = dailyWaveMax;
-      if (values == null || dayIndex <= 0 || dayIndex > values.length) return null;
-      return recentDailyAverage(values, dayIndex);
+      if (values == null || dayIndex <= 0) return null;
+      final start = (dayIndex - 2).clamp(0, dayIndex);
+      final window = values.sublist(start, dayIndex).whereType<num>();
+      if (window.isEmpty) return null;
+      return window.map((v) => v.toDouble()).reduce((a, b) => a + b) / window.length;
     }
 
     // La API marina no ofrece agregados diarios nativos para oleaje de
     // fondo/viento/temperatura del agua (solo wave_height_max): se derivan
     // agrupando el array horario marino por día de calendario.
-    double? dailyMarineMax(List<num>? hourlyValues, int dayIndex) {
+    double? dailyMarineMax(List<num?>? hourlyValues, int dayIndex) {
       if (hourlyValues == null) return null;
       final start = dayIndex * 24;
       final end = (start + 24).clamp(0, hourlyValues.length);
-      if (start >= end) return null;
-      var max = hourlyValues[start];
-      for (var i = start + 1; i < end; i++) {
-        if (hourlyValues[i] > max) max = hourlyValues[i];
+      num? max;
+      for (var i = start; i < end; i++) {
+        final v = hourlyValues[i];
+        if (v == null) continue;
+        if (max == null || v > max) max = v;
       }
-      return max.toDouble();
+      return max?.toDouble();
     }
 
-    double? dailyMarineMean(List<num>? hourlyValues, int dayIndex) {
+    double? dailyMarineMean(List<num?>? hourlyValues, int dayIndex) {
       if (hourlyValues == null) return null;
       final start = dayIndex * 24;
       final end = (start + 24).clamp(0, hourlyValues.length);
-      if (start >= end) return null;
       var sum = 0.0;
+      var count = 0;
       for (var i = start; i < end; i++) {
-        sum += hourlyValues[i].toDouble();
+        final v = hourlyValues[i];
+        if (v == null) continue;
+        sum += v.toDouble();
+        count++;
       }
-      return sum / (end - start);
+      if (count == 0) return null;
+      return sum / count;
+    }
+
+    // Igual que [trailingMax] de trailing_window.dart pero saltándose los
+    // huecos null del array marino (ver comentario de arriba) en vez de
+    // asumir datos completos.
+    double? trailingMarineMax(List<num?>? values, int index, int windowSize) {
+      if (values == null || index >= values.length || values[index] == null) return null;
+      final start = (index - windowSize + 1).clamp(0, index);
+      num? max;
+      for (var i = start; i <= index; i++) {
+        final v = values[i];
+        if (v == null) continue;
+        if (max == null || v > max) max = v;
+      }
+      return max?.toDouble();
     }
 
     BeachConditions buildConditions({
@@ -200,17 +230,15 @@ class OpenMeteoApi {
       fetchedAt: DateTime.now(),
     );
 
-    // Hoy por horas: 24 horas seguidas empezando a las 8:00 de hoy, así que
-    // terminan a las 7:00 de mañana (se saltan las horas de madrugada de
-    // hoy, poco relevantes para ir a la playa), siempre que el proveedor
-    // haya devuelto suficientes horas (los datos marinos pueden llegar
-    // menos lejos que los de tiempo).
-    const hourlyPanelStartHour = 8;
-    final todayHourStart = todayIndex * 24 + hourlyPanelStartHour;
-    final todayHourEnd = (todayHourStart + 24).clamp(0, hourlyTime.length);
+    // Acceso seguro a un array marino horario/diario en la posición [i]:
+    // fuera de rango o dentro del hueco null de después del horizonte real
+    // del modelo (ver comentario más arriba) devuelven null por igual.
+    num? marineAt(List<num?>? values, int i) => (values != null && i < values.length) ? values[i] : null;
+
+    // Por horas: de hoy 0:00 hasta el final del array (últimos días de forecast).
+    final todayHourStart = todayIndex * 24;
     final hourlyPoints = <ConditionPoint>[];
-    for (var i = todayHourStart; i < todayHourEnd; i++) {
-      final hasMarineHour = hourlyWave != null && i < hourlyWave.length;
+    for (var i = todayHourStart; i < hourlyTime.length; i++) {
       hourlyPoints.add(ConditionPoint(
         time: DateTime.parse(hourlyTime[i]),
         conditions: buildConditions(
@@ -225,19 +253,16 @@ class OpenMeteoApi {
           windSpeedSustained48h: trailingAverage(hourlyWind, i, 48),
           uvIndexMax: hourlyUv[i].toDouble(),
           // sunshine_duration solo existe como agregado diario: se reutiliza
-          // el valor de hoy para todas sus horas.
-          sunshineDurationHours: dailySunshine[todayIndex].toDouble() / 3600,
+          // el valor de ese día para todas sus horas.
+          sunshineDurationHours: dailySunshine[i ~/ 24].toDouble() / 3600,
           weatherCode: hourlyWeatherCode[i].toInt(),
           currentWeatherCode: hourlyWeatherCode[i].toInt(),
-          waveHeight: hasMarineHour ? hourlyWave[i].toDouble() : null,
-          windWaveHeight: hasMarineHour && i < (hourlyWindWave?.length ?? 0) ? hourlyWindWave![i].toDouble() : null,
-          swellWaveHeight:
-              hasMarineHour && i < (hourlySwellHeight?.length ?? 0) ? hourlySwellHeight![i].toDouble() : null,
-          swellWavePeriod:
-              hasMarineHour && i < (hourlySwellPeriod?.length ?? 0) ? hourlySwellPeriod![i].toDouble() : null,
-          seaSurfaceTemperature:
-              hasMarineHour && i < (hourlySeaTemp?.length ?? 0) ? hourlySeaTemp![i].toDouble() : null,
-          waveHeightMaxRecent48h: hasMarineHour ? trailingMax(hourlyWave, i, 48) : null,
+          waveHeight: marineAt(hourlyWave, i)?.toDouble(),
+          windWaveHeight: marineAt(hourlyWindWave, i)?.toDouble(),
+          swellWaveHeight: marineAt(hourlySwellHeight, i)?.toDouble(),
+          swellWavePeriod: marineAt(hourlySwellPeriod, i)?.toDouble(),
+          seaSurfaceTemperature: marineAt(hourlySeaTemp, i)?.toDouble(),
+          waveHeightMaxRecent48h: trailingMarineMax(hourlyWave, i, 48),
           fetchedAt: DateTime.parse(hourlyTime[i]),
         ),
       ));
@@ -246,7 +271,6 @@ class OpenMeteoApi {
     // Próximos días: de hoy (incluido) hasta el final del array diario.
     final dailyPoints = <ConditionPoint>[];
     for (var d = todayIndex; d < dailyTime.length; d++) {
-      final hasMarineDay = dailyWaveMax != null && d < dailyWaveMax.length;
       dailyPoints.add(ConditionPoint(
         time: DateTime.parse(dailyTime[d]),
         conditions: buildConditions(
@@ -263,7 +287,7 @@ class OpenMeteoApi {
           sunshineDurationHours: dailySunshine[d].toDouble() / 3600,
           weatherCode: dailyWeatherCode[d].toInt(),
           currentWeatherCode: dailyWeatherCode[d].toInt(),
-          waveHeight: hasMarineDay ? dailyWaveMax[d].toDouble() : null,
+          waveHeight: marineAt(dailyWaveMax, d)?.toDouble(),
           windWaveHeight: dailyMarineMax(hourlyWindWave, d),
           swellWaveHeight: dailyMarineMax(hourlySwellHeight, d),
           swellWavePeriod: dailyMarineMax(hourlySwellPeriod, d),
