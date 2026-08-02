@@ -1,6 +1,8 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import 'time_series_sampling.dart';
+
 /// Redondea [roughStep] al siguiente "número bonito" (1, 2 o 5 por potencia
 /// de 10: 0.1, 0.2, 0.5, 1, 2, 5, 10, 20...), para que el eje Y tenga marcas
 /// enteras/redondas y equiespaciadas en vez de decimales pegados al mínimo y
@@ -42,8 +44,10 @@ String _formatTick(double value, double step) {
 /// separadas del mínimo/máximo real de los datos: los propios puntos de la
 /// línea conservan su valor exacto, solo las etiquetas del eje se redondean.
 ///
-/// Igual que [RatingTimeSeriesChart]: una etiqueta y una línea de rejilla
-/// por cada hora/día, con scroll horizontal si no caben todas en pantalla.
+/// Igual que [RatingTimeSeriesChart]: siempre ocupa el ancho disponible y
+/// dibuja todos los puntos reales; si no caben todas las etiquetas/líneas
+/// de rejilla con una separación legible, se etiquetan menos horas (una de
+/// cada N) en vez de desbordar la pantalla y requerir scroll horizontal.
 class RawParameterTimeSeriesChart extends StatelessWidget {
   final String title;
   final String unit;
@@ -91,91 +95,85 @@ class RawParameterTimeSeriesChart extends StatelessWidget {
             height: 140,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final chartWidth =
-                    constraints.maxWidth > times.length * _pointSpacing
-                        ? constraints.maxWidth
-                        : times.length * _pointSpacing;
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(
-                    width: chartWidth,
-                    child: LineChart(
-                      LineChartData(
-                        minX: 0,
-                        maxX: (times.length - 1).toDouble(),
-                        minY: minY,
-                        maxY: maxY,
-                        gridData: FlGridData(
-                          drawVerticalLine: true,
-                          verticalInterval: 1,
-                          horizontalInterval: step,
-                        ),
-                        borderData: FlBorderData(show: false),
-                        titlesData: FlTitlesData(
-                          topTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 36,
-                              interval: step,
-                              getTitlesWidget: (value, meta) => Text(
-                                _formatTick(value, step),
-                                style: const TextStyle(fontSize: 10),
-                              ),
-                            ),
-                          ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 24,
-                              interval: 1,
-                              getTitlesWidget: (value, meta) {
-                                final index = value.round();
-                                if (index < 0 || index >= times.length) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(labelBuilder(times[index]),
-                                      style: const TextStyle(fontSize: 10)),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                        lineTouchData: LineTouchData(
-                          touchTooltipData: LineTouchTooltipData(
-                            getTooltipItems: (touchedSpots) =>
-                                touchedSpots.map((spot) {
-                              final index = spot.x.round();
-                              final label = index >= 0 && index < times.length
-                                  ? labelBuilder(times[index])
-                                  : '';
-                              return LineTooltipItem(
-                                '$label\n${spot.y.toStringAsFixed(1)} $unit',
-                                const TextStyle(
-                                    color: Colors.white, fontSize: 12),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: [
-                              for (var i = 0; i < values.length; i++)
-                                values[i] == null
-                                    ? FlSpot.nullSpot
-                                    : FlSpot(i.toDouble(), values[i]!),
-                            ],
-                            barWidth: 2,
-                            color: Theme.of(context).colorScheme.primary,
-                            dotData: const FlDotData(show: true),
-                          ),
-                        ],
+                final labelEvery = labelStep(times.length, constraints.maxWidth, _pointSpacing);
+                return SizedBox(
+                  width: constraints.maxWidth,
+                  child: LineChart(
+                    LineChartData(
+                      minX: 0,
+                      maxX: (times.length - 1).toDouble(),
+                      minY: minY,
+                      maxY: maxY,
+                      gridData: FlGridData(
+                        drawVerticalLine: true,
+                        verticalInterval: labelEvery.toDouble(),
+                        horizontalInterval: step,
                       ),
+                      borderData: FlBorderData(show: false),
+                      titlesData: FlTitlesData(
+                        topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 36,
+                            interval: step,
+                            getTitlesWidget: (value, meta) => Text(
+                              _formatTick(value, step),
+                              style: const TextStyle(fontSize: 10),
+                            ),
+                          ),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 24,
+                            interval: labelEvery.toDouble(),
+                            getTitlesWidget: (value, meta) {
+                              final index = value.round();
+                              if (index < 0 || index >= times.length) {
+                                return const SizedBox.shrink();
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(labelBuilder(times[index]),
+                                    style: const TextStyle(fontSize: 10)),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      lineTouchData: LineTouchData(
+                        touchTooltipData: LineTouchTooltipData(
+                          getTooltipItems: (touchedSpots) =>
+                              touchedSpots.map((spot) {
+                            final index = spot.x.round();
+                            final label = index >= 0 && index < times.length
+                                ? labelBuilder(times[index])
+                                : '';
+                            return LineTooltipItem(
+                              '$label\n${spot.y.toStringAsFixed(1)} $unit',
+                              const TextStyle(
+                                  color: Colors.white, fontSize: 12),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: [
+                            for (var i = 0; i < values.length; i++)
+                              values[i] == null
+                                  ? FlSpot.nullSpot
+                                  : FlSpot(i.toDouble(), values[i]!),
+                          ],
+                          barWidth: 2,
+                          color: Theme.of(context).colorScheme.primary,
+                          dotData: const FlDotData(show: true),
+                        ),
+                      ],
                     ),
                   ),
                 );
