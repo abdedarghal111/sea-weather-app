@@ -12,6 +12,26 @@ extension RatingLevelLabel on RatingLevel {
       };
 }
 
+extension PlayaRemovidaTitle on RatingLevel {
+  String get playaRemovidaTitle => switch (this) {
+        RatingLevel.veryGood => 'Playa muy tranquila',
+        RatingLevel.good => 'Playa tranquila',
+        RatingLevel.ok => 'Playa algo removida',
+        RatingLevel.bad => 'Playa removida',
+        RatingLevel.veryBad => 'Playa muy removida',
+      };
+
+  String get playaRemovidaShortLabel => switch (this) {
+        RatingLevel.veryGood => 'Tranquila',
+        RatingLevel.good => 'Tranquila',
+        RatingLevel.ok => 'Algo removida',
+        RatingLevel.bad => 'Removida',
+        RatingLevel.veryBad => 'Muy removida',
+      };
+}
+
+const playaRemovidaSeriesTitle = 'Playa tranquila o removida';
+
 class BeachRating {
   final RatingLevel level;
   final String reason;

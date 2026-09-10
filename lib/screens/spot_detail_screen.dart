@@ -255,7 +255,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
         );
       case 1:
         return RatingTimeSeriesChart(
-          title: 'Playa removida',
+          title: playaRemovidaSeriesTitle,
           times: times,
           scores: points
               .map((p) => p.conditions.ratePlayaRemovida().score)
@@ -420,6 +420,9 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     );
   }
 
+  Widget _playaRemovidaGauge(BeachRating rating) =>
+      RatingGauge(title: rating.level.playaRemovidaTitle, rating: rating);
+
   Widget _buildNowTab(BeachConditions conditions) {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -430,8 +433,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
         RatingGauge(
             title: 'Agua cristalina', rating: conditions.rateWaterClarity()),
         const SizedBox(height: 16),
-        RatingGauge(
-            title: 'Playa removida', rating: conditions.ratePlayaRemovida()),
+        _playaRemovidaGauge(conditions.ratePlayaRemovida()),
         const SizedBox(height: 16),
         RatingGauge(title: 'Surf', rating: conditions.rateSurf()),
         const SizedBox(height: 16),
