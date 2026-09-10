@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 /// Suma de las últimas [windowSize] entradas de [values] terminando en
 /// [index] (inclusive), recortada al histórico disponible. Los huecos null de
 /// la respuesta de la API se saltan.
@@ -39,21 +41,34 @@ double? trailingMax(List<num?> values, int index, int windowSize) {
   return max?.toDouble();
 }
 
-/// Igual que [trailingMax], pero exige que el propio [index] tenga dato: si no
-/// lo tiene, devuelve null en vez del máximo de las entradas anteriores.
+/// Media cuadrática (raíz de la media de los cuadrados) de las últimas
+/// [windowSize] entradas terminando en [index], esa incluida.
 ///
-/// Es lo que necesitan los arrays marinos, que son más cortos que los
-/// meteorológicos y se rellenan de null a partir del horizonte real del
-/// modelo de olas: ahí, arrastrar el máximo de horas anteriores daría un
-/// oleaje reciente inventado para un punto del que no se sabe nada.
-double? trailingMaxIfPresent(List<num?>? values, int index, int windowSize) {
-  if (values == null || index >= values.length || values[index] == null) return null;
+/// Para el oleaje es la forma correcta de resumir una ventana de tiempo: la
+/// energía de una ola crece con el CUADRADO de su altura, y el daño que un
+/// temporal hace a la playa se mide como esa energía por el tiempo que dura
+/// (el índice de Dolan y Davis, Hs²·t, es el estándar en erosión costera).
+/// Con la ventana fija, la media cuadrática resume ese acumulado en metros:
+/// pesa mucho más las horas de mar grande que una media normal, pero no se
+/// dispara por un único pico de una hora como haría el máximo.
+///
+/// Devuelve null si el propio [index] no tiene dato: los arrays marinos se
+/// rellenan de null pasado el horizonte real del modelo de olas, y ahí
+/// arrastrar las horas anteriores sería inventarse el oleaje de un punto del
+/// que no se sabe nada.
+double? trailingRms(List<num?>? values, int index, int windowSize) {
+  if (values == null || index < 0 || index >= values.length || values[index] == null) {
+    return null;
+  }
   final start = (index - windowSize + 1).clamp(0, index);
-  num? max;
+  var sumOfSquares = 0.0;
+  var count = 0;
   for (var i = start; i <= index; i++) {
     final v = values[i];
     if (v == null) continue;
-    if (max == null || v > max) max = v;
+    sumOfSquares += v * v;
+    count++;
   }
-  return max?.toDouble();
+  if (count == 0) return null;
+  return math.sqrt(sumOfSquares / count);
 }

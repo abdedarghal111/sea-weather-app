@@ -117,7 +117,9 @@ class WeatherSnapshot {
   // Solo los datos marinos pueden faltar de verdad: la Marine API devuelve
   // null cuando el punto no es costero.
   final double? waveHeight;
-  final double? waveHeightPast48h;
+  // Altura de ola en media cuadrática de las últimas 48 h: el resumen de la
+  // energía que ha recibido la playa en esos dos días (ver [trailingRms]).
+  final double? rmsWaveHeightPast48h;
   final double? windWaveHeight;
   final double? swellHeight;
   final double? swellPeriod;
@@ -149,7 +151,7 @@ class WeatherSnapshot {
     required this.periodWeatherCode,
     required this.instantWeatherCode,
     this.waveHeight,
-    this.waveHeightPast48h,
+    this.rmsWaveHeightPast48h,
     this.windWaveHeight,
     this.swellHeight,
     this.swellPeriod,
@@ -176,7 +178,7 @@ class WeatherSnapshot {
         'periodWeatherCode': periodWeatherCode,
         'instantWeatherCode': instantWeatherCode,
         'waveHeight': waveHeight,
-        'waveHeightPast48h': waveHeightPast48h,
+        'rmsWaveHeightPast48h': rmsWaveHeightPast48h,
         'windWaveHeight': windWaveHeight,
         'swellHeight': swellHeight,
         'swellPeriod': swellPeriod,
@@ -203,7 +205,7 @@ class WeatherSnapshot {
         periodWeatherCode: json['periodWeatherCode'] as int,
         instantWeatherCode: json['instantWeatherCode'] as int,
         waveHeight: (json['waveHeight'] as num?)?.toDouble(),
-        waveHeightPast48h: (json['waveHeightPast48h'] as num?)?.toDouble(),
+        rmsWaveHeightPast48h: (json['rmsWaveHeightPast48h'] as num?)?.toDouble(),
         windWaveHeight: (json['windWaveHeight'] as num?)?.toDouble(),
         swellHeight: (json['swellHeight'] as num?)?.toDouble(),
         swellPeriod: (json['swellPeriod'] as num?)?.toDouble(),
@@ -379,42 +381,47 @@ class WeatherSnapshot {
         ),
     ];
 
-    final recentWave = waveHeightPast48h;
+    // Umbrales más bajos que los del oleaje instantáneo porque este valor es
+    // una media cuadrática de 48 h, no un pico: un mar que llega a 1.2 m de
+    // media cuadrática durante dos días ha estado rompiendo mucho más fuerte
+    // en sus peores horas. Son una primera estimación, pendiente de
+    // contrastar con playas reales.
+    final recentWave = rmsWaveHeightPast48h;
     if (recentWave == null) {
       checks.add(const Rating(
         level: RatingLevel.fair,
         reason: 'Sin datos de oleaje de días recientes',
         score: 0.5,
       ));
-    } else if (recentWave < 0.4) {
+    } else if (recentWave < 0.3) {
       checks.add(Rating(
         level: RatingLevel.veryGood,
         reason: 'Oleaje en calma en días recientes (${recentWave.toStringAsFixed(1)} m)',
-        score: _lowerIsBetterScore(recentWave, 0.4, 0.6, 1.0, 1.5),
+        score: _lowerIsBetterScore(recentWave, 0.3, 0.5, 0.8, 1.2),
       ));
-    } else if (recentWave < 0.6) {
+    } else if (recentWave < 0.5) {
       checks.add(Rating(
         level: RatingLevel.good,
         reason: 'Oleaje suave en días recientes (${recentWave.toStringAsFixed(1)} m)',
-        score: _lowerIsBetterScore(recentWave, 0.4, 0.6, 1.0, 1.5),
+        score: _lowerIsBetterScore(recentWave, 0.3, 0.5, 0.8, 1.2),
       ));
-    } else if (recentWave < 1.0) {
+    } else if (recentWave < 0.8) {
       checks.add(Rating(
         level: RatingLevel.fair,
         reason: 'Oleaje moderado en días recientes (${recentWave.toStringAsFixed(1)} m)',
-        score: _lowerIsBetterScore(recentWave, 0.4, 0.6, 1.0, 1.5),
+        score: _lowerIsBetterScore(recentWave, 0.3, 0.5, 0.8, 1.2),
       ));
-    } else if (recentWave < 1.5) {
+    } else if (recentWave < 1.2) {
       checks.add(Rating(
         level: RatingLevel.bad,
         reason: 'Oleaje fuerte en días recientes (${recentWave.toStringAsFixed(1)} m), puede haber escalones',
-        score: _lowerIsBetterScore(recentWave, 0.4, 0.6, 1.0, 1.5),
+        score: _lowerIsBetterScore(recentWave, 0.3, 0.5, 0.8, 1.2),
       ));
     } else {
       checks.add(Rating(
         level: RatingLevel.veryBad,
         reason: 'Oleaje muy fuerte en días recientes (${recentWave.toStringAsFixed(1)} m)',
-        score: _lowerIsBetterScore(recentWave, 0.4, 0.6, 1.0, 1.5),
+        score: _lowerIsBetterScore(recentWave, 0.3, 0.5, 0.8, 1.2),
       ));
     }
 

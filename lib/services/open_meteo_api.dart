@@ -192,19 +192,14 @@ class OpenMeteoApi {
       return trailingSum(values, dayIndex - 1, 2);
     }
 
-    // Los arrays marinos son MÁS CORTOS que los meteorológicos: el modelo de
-    // olas solo llega a unos días, así que se le piden menos. Todo lo que los
-    // recorra tiene que recortar al tamaño real y saltarse los huecos null,
-    // en vez de asumir que un índice válido en el array diario lo es aquí.
-    double? recentMarineDailyAverage(int dayIndex) {
-      final values = dailyWaveMax;
-      if (values == null || dayIndex <= 0) return null;
-      final end = dayIndex.clamp(0, values.length);
-      final start = (end - 2).clamp(0, end);
-      final window = values.sublist(start, end).whereType<num>();
-      if (window.isEmpty) return null;
-      return window.map((v) => v.toDouble()).reduce((a, b) => a + b) / window.length;
-    }
+    // El oleaje reciente sale siempre del array horario marino, con la misma
+    // ventana de 48 h para las tres vistas (ahora, por horas y por días): así
+    // la pestaña "Ahora" y la gráfica por horas no pueden contradecirse.
+    // [trailingRms] explica por qué es una media cuadrática y no un máximo.
+    // Los arrays marinos son MÁS CORTOS que los meteorológicos (el modelo de
+    // olas llega a menos días), así que fuera de su alcance devuelve null en
+    // vez de un valor inventado.
+    int lastHourOfDay(int dayIndex) => dayIndex * 24 + 23;
 
     // La API marina no ofrece agregados diarios nativos para oleaje de
     // fondo/viento/temperatura del agua (solo wave_height_max): se derivan
@@ -253,7 +248,7 @@ class OpenMeteoApi {
       required int periodWeatherCode,
       required int instantWeatherCode,
       double? waveHeight,
-      double? waveHeightPast48h,
+      double? rmsWaveHeightPast48h,
       double? windWaveHeight,
       double? swellHeight,
       double? swellPeriod,
@@ -279,7 +274,7 @@ class OpenMeteoApi {
           periodWeatherCode: periodWeatherCode,
           instantWeatherCode: instantWeatherCode,
           waveHeight: waveHeight,
-          waveHeightPast48h: waveHeightPast48h,
+          rmsWaveHeightPast48h: rmsWaveHeightPast48h,
           windWaveHeight: windWaveHeight,
           swellHeight: swellHeight,
           swellPeriod: swellPeriod,
@@ -310,6 +305,19 @@ class OpenMeteoApi {
       return value.toDouble();
     }
 
+    // Hora del array que corresponde a "ahora". Los tiempos vienen en la zona
+    // horaria del punto (timezone=auto) y se comparan con la del dispositivo:
+    // para una playa cercana son la misma, y en un punto lejano lo único que
+    // pasa es que el resumen de oleaje reciente se desplaza unas horas.
+    int nowHourIndex() {
+      final now = DateTime.now();
+      for (var i = hourlyTime.length - 1; i >= 0; i--) {
+        final time = parseTime(stringAt(hourlyTime, i));
+        if (time != null && !time.isAfter(now)) return i;
+      }
+      return todayIndex * 24;
+    }
+
     final nowSnapshot = buildSnapshot(
       // Los valores de `current` pueden faltar: se cae al agregado de hoy.
       apparentTemperature: (current['apparent_temperature'] as num?)?.toDouble() ??
@@ -334,7 +342,7 @@ class OpenMeteoApi {
       swellHeight: (marineCurrent?['swell_wave_height'] as num?)?.toDouble(),
       swellPeriod: (marineCurrent?['swell_wave_period'] as num?)?.toDouble(),
       seaTemperature: (marineCurrent?['sea_surface_temperature'] as num?)?.toDouble(),
-      waveHeightPast48h: recentMarineDailyAverage(todayIndex),
+      rmsWaveHeightPast48h: trailingRms(hourlyWave, nowHourIndex(), 48),
       waveFromDirection: (marineCurrent?['wave_direction'] as num?)?.toDouble(),
       sunrise: parseTime(stringAt(dailySunrise, todayIndex)),
       sunset: parseTime(stringAt(dailySunset, todayIndex)),
@@ -400,7 +408,7 @@ class OpenMeteoApi {
           swellHeight: marineValueAt(hourlySwellHeight, i)?.toDouble(),
           swellPeriod: marineValueAt(hourlySwellPeriod, i)?.toDouble(),
           seaTemperature: marineValueAt(hourlySeaTemp, i)?.toDouble(),
-          waveHeightPast48h: trailingMaxIfPresent(hourlyWave, i, 48),
+          rmsWaveHeightPast48h: trailingRms(hourlyWave, i, 48),
           sunrise: parseTime(stringAt(dailySunrise, i ~/ 24)),
           sunset: parseTime(stringAt(dailySunset, i ~/ 24)),
           windFromDirection: numberAt(hourlyWindDirection, i)?.toDouble(),
@@ -461,7 +469,7 @@ class OpenMeteoApi {
           swellHeight: marineDailyMax(hourlySwellHeight, d),
           swellPeriod: marineDailyMax(hourlySwellPeriod, d),
           seaTemperature: marineDailyMean(hourlySeaTemp, d),
-          waveHeightPast48h: recentMarineDailyAverage(d),
+          rmsWaveHeightPast48h: trailingRms(hourlyWave, lastHourOfDay(d), 48),
           sunrise: parseTime(stringAt(dailySunrise, d)),
           sunset: parseTime(stringAt(dailySunset, d)),
           windFromDirection: numberAt(dailyWindDirection, d)?.toDouble(),

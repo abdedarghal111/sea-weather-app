@@ -38,7 +38,7 @@ WeatherSnapshot _snapshot({
   int periodWeatherCode = 1,
   int instantWeatherCode = 1,
   double? waveHeight,
-  double? waveHeightPast48h,
+  double? rmsWaveHeightPast48h,
   double? windWaveHeight,
   double? swellHeight,
   double? swellPeriod,
@@ -58,7 +58,7 @@ WeatherSnapshot _snapshot({
     periodWeatherCode: periodWeatherCode,
     instantWeatherCode: instantWeatherCode,
     waveHeight: waveHeight,
-    waveHeightPast48h: waveHeightPast48h,
+    rmsWaveHeightPast48h: rmsWaveHeightPast48h,
     windWaveHeight: windWaveHeight,
     swellHeight: swellHeight,
     swellPeriod: swellPeriod,
@@ -249,49 +249,49 @@ void main() {
   group('rateShoreDisturbance', () {
     group('sustained wind branch (thresholds 15/20/30/40 km/h over 48h)', () {
       test('calm sustained wind is very good', () {
-        final r = _snapshot(averageWindSpeedPast48h: 5, waveHeightPast48h: 0.1).rateShoreDisturbance();
+        final r = _snapshot(averageWindSpeedPast48h: 5, rmsWaveHeightPast48h: 0.1).rateShoreDisturbance();
         expect(r.level, RatingLevel.veryGood);
       });
 
       test('mid sustained wind (25 km/h) is ok, with the expected interpolated score', () {
-        final r = _snapshot(averageWindSpeedPast48h: 25, waveHeightPast48h: 0.1).rateShoreDisturbance();
+        final r = _snapshot(averageWindSpeedPast48h: 25, rmsWaveHeightPast48h: 0.1).rateShoreDisturbance();
         expect(r.level, RatingLevel.fair);
         expect(r.score, closeTo(_mirrorLowerIsBetter(25, 15, 20, 30, 40), _tol));
       });
 
       test('very strong sustained wind (>40) is very bad', () {
-        final r = _snapshot(averageWindSpeedPast48h: 45, waveHeightPast48h: 0.1).rateShoreDisturbance();
+        final r = _snapshot(averageWindSpeedPast48h: 45, rmsWaveHeightPast48h: 0.1).rateShoreDisturbance();
         expect(r.level, RatingLevel.veryBad);
       });
     });
 
-    group('recent max wave height branch (thresholds 0.4/0.6/1.0/1.5 m over 48h)', () {
+    group('rms wave height branch (thresholds 0.3/0.5/0.8/1.2 m over 48h)', () {
       test('calm recent seas are very good', () {
-        final r = _snapshot(averageWindSpeedPast48h: 5, waveHeightPast48h: 0.2).rateShoreDisturbance();
+        final r = _snapshot(averageWindSpeedPast48h: 5, rmsWaveHeightPast48h: 0.2).rateShoreDisturbance();
         expect(r.level, RatingLevel.veryGood);
       });
 
-      test('a recent 1.8m max is very bad regardless of calm wind', () {
-        final r = _snapshot(averageWindSpeedPast48h: 5, waveHeightPast48h: 1.8).rateShoreDisturbance();
+      test('a sustained 1.8m sea is very bad regardless of calm wind', () {
+        final r = _snapshot(averageWindSpeedPast48h: 5, rmsWaveHeightPast48h: 1.8).rateShoreDisturbance();
         expect(r.level, RatingLevel.veryBad);
       });
 
       test('missing recent-wave data falls back to a cautious ok / 0.5 score', () {
-        final r = _snapshot(averageWindSpeedPast48h: 5, waveHeightPast48h: null).rateShoreDisturbance();
+        final r = _snapshot(averageWindSpeedPast48h: 5, rmsWaveHeightPast48h: null).rateShoreDisturbance();
         expect(r.level, RatingLevel.fair);
         expect(r.score, closeTo(0.5, _tol));
         expect(r.reason, contains('oleaje'));
       });
 
-      test('exact t1 boundary (0.4m): level and score change tiers together', () {
-        final r = _snapshot(averageWindSpeedPast48h: 5, waveHeightPast48h: 0.4).rateShoreDisturbance();
+      test('exact t1 boundary (0.3m): level and score change tiers together', () {
+        final r = _snapshot(averageWindSpeedPast48h: 5, rmsWaveHeightPast48h: 0.3).rateShoreDisturbance();
         expect(r.level, RatingLevel.good);
         expect(r.score, closeTo(0.8, _tol));
       });
     });
 
     test('storm-battered beach: strong sustained wind + big recent surf is very bad', () {
-      final r = _snapshot(averageWindSpeedPast48h: 50, waveHeightPast48h: 2.5).rateShoreDisturbance();
+      final r = _snapshot(averageWindSpeedPast48h: 50, rmsWaveHeightPast48h: 2.5).rateShoreDisturbance();
       expect(r.level, RatingLevel.veryBad);
     });
   });
@@ -612,7 +612,7 @@ void main() {
         instantWeatherCode: 1,
         waveHeight: 0.1,
         windWaveHeight: 0.1,
-        waveHeightPast48h: 0.1,
+        rmsWaveHeightPast48h: 0.1,
         swellHeight: 1.3,
         swellPeriod: 12,
       );
@@ -638,7 +638,7 @@ void main() {
         instantWeatherCode: 65,
         waveHeight: 3.0,
         windWaveHeight: 2.5,
-        waveHeightPast48h: 3.0,
+        rmsWaveHeightPast48h: 3.0,
         swellHeight: 0.1,
         swellPeriod: 4,
       );
@@ -690,9 +690,9 @@ void main() {
       }
     });
 
-    test('rateShoreDisturbance score is non-increasing as recent max wave height worsens (0 to 5m)', () {
+    test('rateShoreDisturbance score is non-increasing as sustained wave height worsens (0 to 5m)', () {
       final scores = sample(
-        (h) => _snapshot(waveHeightPast48h: h).rateShoreDisturbance().score,
+        (h) => _snapshot(rmsWaveHeightPast48h: h).rateShoreDisturbance().score,
         [for (var h = 0.0; h <= 5; h += 0.1) h],
       );
       for (var i = 1; i < scores.length; i++) {

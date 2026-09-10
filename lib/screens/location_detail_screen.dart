@@ -35,7 +35,7 @@ const _measurements = [
   MeasurementSpec('Viento sostenido 48h', 'km/h', _averageWindSpeedPast48h),
   MeasurementSpec('Altura de ola', 'm', _waveHeight),
   MeasurementSpec('Oleaje de viento', 'm', _windWaveHeight),
-  MeasurementSpec('Oleaje máx. 48h', 'm', _waveHeightPast48h),
+  MeasurementSpec('Oleaje sostenido 48h', 'm', _rmsWaveHeightPast48h),
   MeasurementSpec('Temp. del agua', '°C', _seaTemperature),
   MeasurementSpec('Oleaje de fondo', 'm', _swellHeight),
   MeasurementSpec('Periodo swell', 's', _swellPeriod),
@@ -54,7 +54,7 @@ double? _windGustSpeed(WeatherSnapshot w) => w.windGustSpeed;
 double? _averageWindSpeedPast48h(WeatherSnapshot w) => w.averageWindSpeedPast48h;
 double? _waveHeight(WeatherSnapshot w) => w.waveHeight;
 double? _windWaveHeight(WeatherSnapshot w) => w.windWaveHeight;
-double? _waveHeightPast48h(WeatherSnapshot w) => w.waveHeightPast48h;
+double? _rmsWaveHeightPast48h(WeatherSnapshot w) => w.rmsWaveHeightPast48h;
 double? _seaTemperature(WeatherSnapshot w) => w.seaTemperature;
 double? _swellHeight(WeatherSnapshot w) => w.swellHeight;
 double? _swellPeriod(WeatherSnapshot w) => w.swellPeriod;
@@ -550,9 +550,9 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
             ),
             MeasurementTile(
               icon: FontAwesomeIcons.chartLine,
-              label: 'Oleaje máx. 48h',
-              value: weather.waveHeightPast48h != null
-                  ? '${weather.waveHeightPast48h!.toStringAsFixed(1)} m'
+              label: 'Oleaje sostenido 48h',
+              value: weather.rmsWaveHeightPast48h != null
+                  ? '${weather.rmsWaveHeightPast48h!.toStringAsFixed(1)} m'
                   : '—',
             ),
             MeasurementTile(

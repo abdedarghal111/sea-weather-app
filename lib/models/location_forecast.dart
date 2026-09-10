@@ -9,7 +9,7 @@ class LocationForecast {
   /// (p.ej. renombrar campos o añadir listas anidadas nuevas) se sube este
   /// número para invalidar cachés antiguas de forma explícita, además del
   /// try/catch de parseo.
-  static const schemaVersion = 8;
+  static const schemaVersion = 9;
 
   final WeatherSnapshot now;
   final List<ForecastPoint> hourly;
