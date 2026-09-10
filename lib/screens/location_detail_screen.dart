@@ -14,50 +14,72 @@ import '../widgets/rating_gauge.dart';
 import '../widgets/wave_direction_chart.dart';
 import '../widgets/wind_direction_chart.dart';
 
+/// Una medida del tiempo o del mar, con todo lo que hace falta para
+/// enseñarla en los dos sitios donde aparece: como tarjeta en "Ahora" y como
+/// gráfica en las pestañas de serie temporal. Así la lista de medidas y su
+/// orden se declaran una sola vez.
 class MeasurementSpec {
+  /// Título de la gráfica; también etiqueta de la tarjeta, salvo que
+  /// [tileLabel] diga otra cosa (en la tarjeta cabe algo más de texto).
   final String title;
   final String unit;
+  final FaIconData icon;
+  final String? tileLabel;
+
+  /// Null cuando la medida no aplica al punto: los datos marinos de una
+  /// localidad de interior.
   final double? Function(WeatherSnapshot) value;
-  const MeasurementSpec(this.title, this.unit, this.value);
+
+  const MeasurementSpec(this.title, this.unit, this.icon, this.value, {this.tileLabel});
+
+  String get label => tileLabel ?? title;
+
+  /// El valor escrito para la tarjeta de "Ahora", o "—" si no hay dato.
+  /// Milímetros y metros llevan un decimal (0.4 mm es información, "0 mm" no)
+  /// y el resto se redondea; los símbolos que se pegan al número van sin
+  /// espacio delante.
+  String formatted(WeatherSnapshot weather) {
+    final measured = value(weather);
+    if (measured == null) return '—';
+    final text = unit == 'mm' || unit == 'm'
+        ? measured.toStringAsFixed(1)
+        : measured.round().toString();
+    if (unit.isEmpty) return text;
+    return unit == '°C' || unit == '%' ? '$text$unit' : '$text $unit';
+  }
 }
 
-const _measurements = [
-  MeasurementSpec('Temp. máx.', '°C', _airTemperature),
-  MeasurementSpec('Sensación', '°C', _apparentTemperature),
-  MeasurementSpec('Nubosidad', '%', _cloudCover),
-  MeasurementSpec('Índice UV', '', _uvIndex),
-  MeasurementSpec('Horas de sol', 'h', _sunshineHours),
-  MeasurementSpec('Prob. lluvia', '%', _precipitationProbability),
-  MeasurementSpec('Lluvia', 'mm', _precipitationTotal),
-  MeasurementSpec('Lluvia 48h', 'mm', _precipitationPast48h),
-  MeasurementSpec('Viento máx.', 'km/h', _windSpeed),
-  MeasurementSpec('Rachas', 'km/h', _windGustSpeed),
-  MeasurementSpec('Viento sostenido 48h', 'km/h', _averageWindSpeedPast48h),
-  MeasurementSpec('Altura de ola', 'm', _waveHeight),
-  MeasurementSpec('Oleaje de viento', 'm', _windWaveHeight),
-  MeasurementSpec('Oleaje sostenido 48h', 'm', _rmsWaveHeightPast48h),
-  MeasurementSpec('Temp. del agua', '°C', _seaTemperature),
-  MeasurementSpec('Oleaje de fondo', 'm', _swellHeight),
-  MeasurementSpec('Periodo swell', 's', _swellPeriod),
+/// No es `const` porque los extractores son funciones anónimas; a cambio la
+/// lista se lee de un tirón.
+final _measurements = <MeasurementSpec>[
+  MeasurementSpec('Temp. máx.', '°C', FontAwesomeIcons.temperatureHalf,
+      (w) => w.airTemperature),
+  MeasurementSpec('Sensación', '°C', FontAwesomeIcons.temperatureThreeQuarters,
+      (w) => w.apparentTemperature),
+  MeasurementSpec('Nubosidad', '%', FontAwesomeIcons.cloud, (w) => w.cloudCover),
+  MeasurementSpec('Índice UV', '', FontAwesomeIcons.sun, (w) => w.uvIndex),
+  MeasurementSpec('Horas de sol', 'h', FontAwesomeIcons.solarPanel, (w) => w.sunshineHours),
+  MeasurementSpec('Prob. lluvia', '%', FontAwesomeIcons.droplet,
+      (w) => w.precipitationProbability,
+      tileLabel: 'Prob. lluvia hoy'),
+  MeasurementSpec('Lluvia', 'mm', FontAwesomeIcons.cloudRain, (w) => w.precipitationTotal,
+      tileLabel: 'Lluvia hoy'),
+  MeasurementSpec('Lluvia 48h', 'mm', FontAwesomeIcons.cloudShowersHeavy,
+      (w) => w.precipitationPast48h),
+  MeasurementSpec('Viento máx.', 'km/h', FontAwesomeIcons.wind, (w) => w.windSpeed),
+  MeasurementSpec('Rachas', 'km/h', FontAwesomeIcons.fan, (w) => w.windGustSpeed),
+  MeasurementSpec('Viento sostenido 48h', 'km/h', FontAwesomeIcons.calendarWeek,
+      (w) => w.averageWindSpeedPast48h),
+  MeasurementSpec('Altura de ola', 'm', FontAwesomeIcons.water, (w) => w.waveHeight),
+  MeasurementSpec('Oleaje de viento', 'm', FontAwesomeIcons.waterLadder,
+      (w) => w.windWaveHeight),
+  MeasurementSpec('Oleaje sostenido 48h', 'm', FontAwesomeIcons.chartLine,
+      (w) => w.rmsWaveHeightPast48h),
+  MeasurementSpec('Temp. del agua', '°C', FontAwesomeIcons.personSwimming,
+      (w) => w.seaTemperature),
+  MeasurementSpec('Oleaje de fondo', 'm', FontAwesomeIcons.waveSquare, (w) => w.swellHeight),
+  MeasurementSpec('Periodo swell', 's', FontAwesomeIcons.stopwatch, (w) => w.swellPeriod),
 ];
-
-double? _airTemperature(WeatherSnapshot w) => w.airTemperature;
-double? _apparentTemperature(WeatherSnapshot w) => w.apparentTemperature;
-double? _cloudCover(WeatherSnapshot w) => w.cloudCover;
-double? _uvIndex(WeatherSnapshot w) => w.uvIndex;
-double? _sunshineHours(WeatherSnapshot w) => w.sunshineHours;
-double? _precipitationProbability(WeatherSnapshot w) => w.precipitationProbability;
-double? _precipitationTotal(WeatherSnapshot w) => w.precipitationTotal;
-double? _precipitationPast48h(WeatherSnapshot w) => w.precipitationPast48h;
-double? _windSpeed(WeatherSnapshot w) => w.windSpeed;
-double? _windGustSpeed(WeatherSnapshot w) => w.windGustSpeed;
-double? _averageWindSpeedPast48h(WeatherSnapshot w) => w.averageWindSpeedPast48h;
-double? _waveHeight(WeatherSnapshot w) => w.waveHeight;
-double? _windWaveHeight(WeatherSnapshot w) => w.windWaveHeight;
-double? _rmsWaveHeightPast48h(WeatherSnapshot w) => w.rmsWaveHeightPast48h;
-double? _seaTemperature(WeatherSnapshot w) => w.seaTemperature;
-double? _swellHeight(WeatherSnapshot w) => w.swellHeight;
-double? _swellPeriod(WeatherSnapshot w) => w.swellPeriod;
 
 const _weekdayNames = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
 const _monthNames = [
@@ -222,95 +244,59 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     return (points.length - 1).toDouble();
   }
 
-  /// Número de tarjetas que produce [_buildSeriesItem] para una serie no
-  /// vacía: 5 gráficas de valoración + 1 de dirección de viento + 1 de
-  /// dirección de las olas + 1 por cada [MeasurementSpec] de [_measurements].
-  int _seriesItemCount(List<ForecastPoint> points) =>
-      points.isEmpty ? 1 : 7 + _measurements.length;
-
-  /// Construye bajo demanda la tarjeta `index` de una sección de serie
-  /// temporal (a partir de [points]/[times] ya calculados una única vez por
-  /// pestaña). Se usa como `itemBuilder` de un `ListView.builder` en vez de
-  /// construir las ~23 gráficas por adelantado: así solo se calculan (y solo
-  /// se llaman los métodos rateX(), que no son gratis) las que realmente
-  /// entran en pantalla o en su caché de scroll.
-  Widget _buildSeriesItem(
+  /// Las tarjetas de una pestaña de serie temporal, en orden: las 5 gráficas
+  /// de valoración, las 2 de dirección y una por cada medida de
+  /// [_measurements].
+  ///
+  /// Devuelve constructores, no widgets: alimentan un `ListView.builder`, que
+  /// solo invoca los de las tarjetas que entran en pantalla o en su caché de
+  /// scroll. Construir las ~24 gráficas por adelantado en cada build (p. ej.
+  /// al cambiar de día en "Por horas") sí se nota, porque recorren todos los
+  /// puntos y llaman a los métodos rateX(), que no son gratis.
+  List<Widget Function()> _seriesCards(
     List<ForecastPoint> points,
     List<DateTime> times,
-    String Function(DateTime) labelBuilder,
-    int index, {
+    String Function(DateTime) labelBuilder, {
     double? highlightPosition,
   }) {
-    if (points.isEmpty) {
-      return const Text('Sin datos disponibles.');
-    }
+    if (points.isEmpty) return [() => const Text('Sin datos disponibles.')];
 
-    switch (index) {
-      case 0:
-        return RatingChart(
-          title: waterClaritySeriesTitle,
+    Widget ratingChart(String title, double Function(WeatherSnapshot) score) => RatingChart(
+          title: title,
           times: times,
-          scores: points.map((p) => p.weather.rateWaterClarity().score).toList(),
+          scores: points.map((p) => score(p.weather)).toList(),
           labelBuilder: labelBuilder,
           highlightPosition: highlightPosition,
         );
-      case 1:
-        return RatingChart(
-          title: shoreDisturbanceSeriesTitle,
-          times: times,
-          scores: points.map((p) => p.weather.rateShoreDisturbance().score).toList(),
-          labelBuilder: labelBuilder,
-          highlightPosition: highlightPosition,
-        );
-      case 2:
-        return RatingChart(
-          title: 'Surf',
-          times: times,
-          scores: points.map((p) => p.weather.rateSurf().score).toList(),
-          labelBuilder: labelBuilder,
-          highlightPosition: highlightPosition,
-        );
-      case 3:
-        return RatingChart(
-          title: 'Sol',
-          times: times,
-          scores: points.map((p) => p.weather.rateSun().score).toList(),
-          labelBuilder: labelBuilder,
-          highlightPosition: highlightPosition,
-        );
-      case 4:
-        return RatingChart(
-          title: rainSeriesTitle,
-          times: times,
-          scores: points.map((p) => p.weather.rateRain().score).toList(),
-          labelBuilder: labelBuilder,
-          highlightPosition: highlightPosition,
-        );
-      case 5:
-        return WindDirectionChart(
-          times: times,
-          directions: points.map((p) => p.weather.windFromDirection).toList(),
-          labelBuilder: labelBuilder,
-          highlightPosition: highlightPosition,
-        );
-      case 6:
-        return WaveDirectionChart(
-          times: times,
-          directions: points.map((p) => p.weather.waveFromDirection).toList(),
-          labelBuilder: labelBuilder,
-          highlightPosition: highlightPosition,
-        );
-      default:
-        final spec = _measurements[index - 7];
-        return MeasurementChart(
-          title: spec.title,
-          unit: spec.unit,
-          times: times,
-          values: points.map((p) => spec.value(p.weather)).toList(),
-          labelBuilder: labelBuilder,
-          highlightPosition: highlightPosition,
-        );
-    }
+
+    return [
+      () => ratingChart(waterClaritySeriesTitle, (w) => w.rateWaterClarity().score),
+      () => ratingChart(shoreDisturbanceSeriesTitle, (w) => w.rateShoreDisturbance().score),
+      () => ratingChart('Surf', (w) => w.rateSurf().score),
+      () => ratingChart('Sol', (w) => w.rateSun().score),
+      () => ratingChart(rainSeriesTitle, (w) => w.rateRain().score),
+      () => WindDirectionChart(
+            times: times,
+            directions: points.map((p) => p.weather.windFromDirection).toList(),
+            labelBuilder: labelBuilder,
+            highlightPosition: highlightPosition,
+          ),
+      () => WaveDirectionChart(
+            times: times,
+            directions: points.map((p) => p.weather.waveFromDirection).toList(),
+            labelBuilder: labelBuilder,
+            highlightPosition: highlightPosition,
+          ),
+      for (final spec in _measurements)
+        () => MeasurementChart(
+              title: spec.title,
+              unit: spec.unit,
+              times: times,
+              values: points.map((p) => spec.value(p.weather)).toList(),
+              labelBuilder: labelBuilder,
+              highlightPosition: highlightPosition,
+            ),
+    ];
   }
 
   Widget _errorView(Object? error) {
@@ -369,70 +355,46 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
             }
 
             final forecast = snapshot.data!;
-            final weatherNow = forecast.now;
-            final hourlyDayCount = _hourlyDayCount(forecast);
             final hourlyOffset = _clampedHourlyOffset(forecast);
             final hourlyPoints = _hourlySlice(forecast, hourlyOffset);
-            final hourlyTimes = hourlyPoints.map((p) => p.time).toList();
-            final hourlyHighlight = _nowMarkerPosition(hourlyPoints);
-            final dailyTimes = forecast.daily.map((p) => p.time).toList();
 
-            // Las dos pestañas de serie temporal usan ListView.builder (no
-            // ListView(children: [...])) para que las ~23 gráficas de cada
-            // una (incluidas las llamadas a rateX(), que no son gratis) se
-            // construyan solo bajo demanda según lo que entra en pantalla o
-            // en la caché de scroll, en vez de construirse siempre las tres
-            // pestañas enteras en cada build (p. ej. al cambiar de día u
-            // horario en "Por horas").
-            const hourlyHeaderCount = 4;
+            // Los selectores de día y de franja horaria son dos tarjetas más
+            // de la lista, así el índice de las gráficas no depende de
+            // cuántas cabeceras haya.
+            final hourlyCards = <Widget Function()>[
+              () => _buildHourlyDaySelector(
+                  forecast, hourlyOffset, _hourlyDayCount(forecast)),
+              () => const SizedBox(height: 8),
+              () => _buildHourlyWindowSelector(),
+              () => const SizedBox(height: 12),
+              ..._seriesCards(
+                hourlyPoints,
+                hourlyPoints.map((p) => p.time).toList(),
+                _hourLabel,
+                highlightPosition: _nowMarkerPosition(hourlyPoints),
+              ),
+            ];
+            final dailyCards = _seriesCards(
+              forecast.daily,
+              forecast.daily.map((p) => p.time).toList(),
+              _dayLabel,
+            );
+
             return TabBarView(
               children: [
                 RefreshIndicator(
                   onRefresh: () => _refresh(force: true),
-                  child: _buildNowTab(weatherNow),
+                  child: _buildNowTab(forecast.now),
                 ),
-                RefreshIndicator(
-                  onRefresh: () => _refresh(force: true),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount:
-                        hourlyHeaderCount + _seriesItemCount(hourlyPoints),
-                    itemBuilder: (context, index) {
-                      switch (index) {
-                        case 0:
-                          return _buildHourlyDaySelector(
-                              forecast, hourlyOffset, hourlyDayCount);
-                        case 1:
-                          return const SizedBox(height: 8);
-                        case 2:
-                          return _buildHourlyWindowSelector();
-                        case 3:
-                          return const SizedBox(height: 12);
-                        default:
-                          return _buildSeriesItem(
-                            hourlyPoints,
-                            hourlyTimes,
-                            _hourLabel,
-                            index - hourlyHeaderCount,
-                            highlightPosition: hourlyHighlight,
-                          );
-                      }
-                    },
-                  ),
-                ),
-                RefreshIndicator(
-                  onRefresh: () => _refresh(force: true),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _seriesItemCount(forecast.daily),
-                    itemBuilder: (context, index) => _buildSeriesItem(
-                      forecast.daily,
-                      dailyTimes,
-                      _dayLabel,
-                      index,
+                for (final cards in [hourlyCards, dailyCards])
+                  RefreshIndicator(
+                    onRefresh: () => _refresh(force: true),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: cards.length,
+                      itemBuilder: (context, index) => cards[index](),
                     ),
                   ),
-                ),
               ],
             );
           },
@@ -441,31 +403,30 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     );
   }
 
-  Widget _rainGauge(Rating rating) =>
-      RatingGauge(title: rating.level.rainTitle, rating: rating);
-
-  Widget _waterClarityGauge(Rating rating) =>
-      RatingGauge(title: rating.level.waterClarityTitle, rating: rating);
-
-  Widget _shoreDisturbanceGauge(Rating rating) =>
-      RatingGauge(title: rating.level.shoreDisturbanceTitle, rating: rating);
-
   Widget _buildNowTab(WeatherSnapshot weather) {
+    // Estas tres valoraciones titulan su termómetro con el propio nivel
+    // ("Agua cristalina", "Playa removida"...) en vez de con el nombre de la
+    // medida, que es lo que hacen Surf y Sol.
+    final waterClarity = weather.rateWaterClarity();
+    final shoreDisturbance = weather.rateShoreDisturbance();
+    final rain = weather.rateRain();
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Text(_minutesAgoLabel(weather.fetchedAt),
             style: Theme.of(context).textTheme.bodySmall),
         const SizedBox(height: 12),
-        _waterClarityGauge(weather.rateWaterClarity()),
+        RatingGauge(title: waterClarity.level.waterClarityTitle, rating: waterClarity),
         const SizedBox(height: 16),
-        _shoreDisturbanceGauge(weather.rateShoreDisturbance()),
+        RatingGauge(
+            title: shoreDisturbance.level.shoreDisturbanceTitle, rating: shoreDisturbance),
         const SizedBox(height: 16),
         RatingGauge(title: 'Surf', rating: weather.rateSurf()),
         const SizedBox(height: 16),
         RatingGauge(title: 'Sol', rating: weather.rateSun()),
         const SizedBox(height: 16),
-        _rainGauge(weather.rateRain()),
+        RatingGauge(title: rain.level.rainTitle, rating: rain),
         const SizedBox(height: 16),
         Text('Todos los datos', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
@@ -479,103 +440,14 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
             childAspectRatio: 0.9,
           ),
           children: [
-            MeasurementTile(
-              icon: FontAwesomeIcons.temperatureHalf,
-              label: 'Temp. máx.',
-              value: '${weather.airTemperature.round()}°C',
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.temperatureThreeQuarters,
-              label: 'Sensación',
-              value: '${weather.apparentTemperature.round()}°C',
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.cloud,
-              label: 'Nubosidad',
-              value: '${weather.cloudCover.round()}%',
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.sun,
-              label: 'Índice UV',
-              value: weather.uvIndex.round().toString(),
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.solarPanel,
-              label: 'Horas de sol',
-              value: '${weather.sunshineHours.round()} h',
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.droplet,
-              label: 'Prob. lluvia hoy',
-              value: '${weather.precipitationProbability.round()}%',
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.cloudRain,
-              label: 'Lluvia hoy',
-              value: '${weather.precipitationTotal.toStringAsFixed(1)} mm',
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.cloudShowersHeavy,
-              label: 'Lluvia 48h',
-              value: '${weather.precipitationPast48h.toStringAsFixed(1)} mm',
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.wind,
-              label: 'Viento máx.',
-              value: '${weather.windSpeed.round()} km/h',
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.fan,
-              label: 'Rachas',
-              value: '${weather.windGustSpeed.round()} km/h',
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.calendarWeek,
-              label: 'Viento sostenido 48h',
-              value: '${weather.averageWindSpeedPast48h.round()} km/h',
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.water,
-              label: 'Altura de ola',
-              value: weather.waveHeight != null
-                  ? '${weather.waveHeight!.toStringAsFixed(1)} m'
-                  : '—',
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.waterLadder,
-              label: 'Oleaje de viento',
-              value: weather.windWaveHeight != null
-                  ? '${weather.windWaveHeight!.toStringAsFixed(1)} m'
-                  : '—',
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.chartLine,
-              label: 'Oleaje sostenido 48h',
-              value: weather.rmsWaveHeightPast48h != null
-                  ? '${weather.rmsWaveHeightPast48h!.toStringAsFixed(1)} m'
-                  : '—',
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.personSwimming,
-              label: 'Temp. del agua',
-              value: weather.seaTemperature != null
-                  ? '${weather.seaTemperature!.round()}°C'
-                  : '—',
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.waveSquare,
-              label: 'Oleaje de fondo',
-              value: weather.swellHeight != null
-                  ? '${weather.swellHeight!.toStringAsFixed(1)} m'
-                  : '—',
-            ),
-            MeasurementTile(
-              icon: FontAwesomeIcons.stopwatch,
-              label: 'Periodo swell',
-              value: weather.swellPeriod != null
-                  ? '${weather.swellPeriod!.round()} s'
-                  : '—',
-            ),
+            for (final spec in _measurements)
+              MeasurementTile(
+                icon: spec.icon,
+                label: spec.label,
+                value: spec.formatted(weather),
+              ),
+            // El amanecer y el atardecer son horas, no medidas que se puedan
+            // dibujar en una gráfica, así que van aparte de [_measurements].
             MeasurementTile(
               icon: FontAwesomeIcons.solidSun,
               label: 'Amanecer',
