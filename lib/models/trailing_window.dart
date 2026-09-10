@@ -1,29 +1,40 @@
 /// Suma de las últimas [windowSize] entradas de [values] terminando en
-/// [index] (inclusive), recortada al histórico disponible.
-double trailingSum(List<num> values, int index, int windowSize) {
+/// [index] (inclusive), recortada al histórico disponible. Los huecos null de
+/// la respuesta de la API se saltan.
+double trailingSum(List<num?> values, int index, int windowSize) {
   final start = (index - windowSize + 1).clamp(0, index);
   var sum = 0.0;
-  for (var i = start; i <= index; i++) {
-    sum += values[i].toDouble();
+  for (var i = start; i <= index && i < values.length; i++) {
+    sum += values[i]?.toDouble() ?? 0;
   }
   return sum;
 }
 
-/// Media de las últimas [windowSize] entradas de [values] terminando en
-/// [index] (inclusive), recortada al histórico disponible.
-double trailingAverage(List<num> values, int index, int windowSize) {
+/// Media de las entradas con dato de las últimas [windowSize] terminando en
+/// [index] (inclusive). Devuelve null si la ventana entera está vacía.
+double? trailingAverage(List<num?> values, int index, int windowSize) {
   final start = (index - windowSize + 1).clamp(0, index);
-  final count = index - start + 1;
-  return trailingSum(values, index, windowSize) / count;
+  var sum = 0.0;
+  var count = 0;
+  for (var i = start; i <= index && i < values.length; i++) {
+    final v = values[i];
+    if (v == null) continue;
+    sum += v.toDouble();
+    count++;
+  }
+  if (count == 0) return null;
+  return sum / count;
 }
 
-/// Máximo de las últimas [windowSize] entradas de [values] terminando en
-/// [index] (inclusive), recortada al histórico disponible.
-double trailingMax(List<num> values, int index, int windowSize) {
+/// Máximo de las entradas con dato de las últimas [windowSize] terminando en
+/// [index] (inclusive). Devuelve null si la ventana entera está vacía.
+double? trailingMax(List<num?> values, int index, int windowSize) {
   final start = (index - windowSize + 1).clamp(0, index);
-  var max = values[start].toDouble();
-  for (var i = start + 1; i <= index; i++) {
-    if (values[i] > max) max = values[i].toDouble();
+  num? max;
+  for (var i = start; i <= index && i < values.length; i++) {
+    final v = values[i];
+    if (v == null) continue;
+    if (max == null || v > max) max = v;
   }
-  return max;
+  return max?.toDouble();
 }
