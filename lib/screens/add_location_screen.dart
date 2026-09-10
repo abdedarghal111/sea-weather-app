@@ -9,6 +9,7 @@ import '../models/location.dart';
 import '../services/api_error.dart';
 import '../services/geocoding_api.dart';
 import '../services/locations_repository.dart';
+import '../widgets/map_layers.dart';
 
 class AddLocationScreen extends StatefulWidget {
   const AddLocationScreen({super.key});
@@ -29,6 +30,10 @@ class _AddLocationScreenState extends State<AddLocationScreen> with SingleTicker
   LatLng? _tappedPoint;
   final _mapNameController = TextEditingController();
 
+  final _mapController = MapController();
+  final _mapSearchController = TextEditingController();
+  bool _mapSearching = false;
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +45,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> with SingleTicker
     _tabController.dispose();
     _searchController.dispose();
     _mapNameController.dispose();
+    _mapController.dispose();
+    _mapSearchController.dispose();
     super.dispose();
   }
 
@@ -66,6 +73,58 @@ class _AddLocationScreenState extends State<AddLocationScreen> with SingleTicker
     } finally {
       setState(() => _searching = false);
     }
+  }
+
+  // La búsqueda del mapa solo mueve la vista: el punto lo sigue eligiendo el
+  // usuario tocando, para poder afinarlo dentro de la zona encontrada.
+  Future<void> _searchOnMap() async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _mapSearching = true);
+    List<GeocodingResult> results;
+    try {
+      results = await GeocodingApi.search(_mapSearchController.text);
+    } on ApiException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      return;
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No se pudo buscar. Comprueba tu conexión.')),
+      );
+      return;
+    } finally {
+      if (mounted) setState(() => _mapSearching = false);
+    }
+
+    if (!mounted) return;
+    if (results.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Sin resultados: prueba con el pueblo o ciudad más cercano.')),
+      );
+      return;
+    }
+
+    final target = results.length == 1 ? results.first : await _pickSearchResult(results);
+    if (target == null) return;
+    _mapController.move(LatLng(target.latitude, target.longitude), 13);
+  }
+
+  Future<GeocodingResult?> _pickSearchResult(List<GeocodingResult> results) {
+    return showModalBottomSheet<GeocodingResult>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final result in results)
+              ListTile(
+                leading: const FaIcon(FontAwesomeIcons.locationDot),
+                title: Text(result.label),
+                onTap: () => Navigator.of(context).pop(result),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _saveLocation(String name, double latitude, double longitude) async {
@@ -157,25 +216,43 @@ class _AddLocationScreenState extends State<AddLocationScreen> with SingleTicker
   Widget _buildMapTab() {
     return Column(
       children: [
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _mapSearchController,
+                  decoration: const InputDecoration(
+                    labelText: 'Ir a una ciudad',
+                    border: OutlineInputBorder(),
+                  ),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _searchOnMap(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                onPressed: _mapSearching ? null : _searchOnMap,
+                tooltip: 'Llevar el mapa a esa ciudad',
+                icon: _mapSearching
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const FaIcon(FontAwesomeIcons.magnifyingGlass, size: 16),
+              ),
+            ],
+          ),
+        ),
         Expanded(
           child: FlutterMap(
+            mapController: _mapController,
             options: MapOptions(
               initialCenter: const LatLng(38.08, -0.65),
               initialZoom: 8,
               onTap: (tapPosition, point) => setState(() => _tappedPoint = point),
             ),
             children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'es.abderra.sea_weather_app',
-              ),
-              if (_tappedPoint != null)
-                MarkerLayer(markers: [
-                  Marker(
-                    point: _tappedPoint!,
-                    child: const FaIcon(FontAwesomeIcons.mapPin, color: Colors.red, size: 36),
-                  ),
-                ]),
+              osmTileLayer(),
+              if (_tappedPoint != null) MarkerLayer(markers: [locationPinMarker(_tappedPoint!)]),
             ],
           ),
         ),
