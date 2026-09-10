@@ -166,7 +166,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> with SingleTicker
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.sea_weather_app',
+                userAgentPackageName: 'es.abderra.sea_weather_app',
               ),
               if (_tappedPoint != null)
                 MarkerLayer(markers: [
