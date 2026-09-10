@@ -27,8 +27,16 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
     _spotsFuture = _repository.loadSpots();
   }
 
+  /// Un Future por cala, creado una sola vez. Si se crearan dentro del
+  /// `itemBuilder`, cada rebuild o cada scroll relanzaría la consulta.
+  final _conditionFutures = <String, Future<SpotConditionsBundle>>{};
+
+  Future<SpotConditionsBundle> _conditionsFor(Spot spot) =>
+      _conditionFutures.putIfAbsent(spot.cacheKey, () => _cache.getConditions(spot));
+
   void _reload() {
     setState(() {
+      _conditionFutures.clear();
       _spotsFuture = _repository.loadSpots();
     });
   }
@@ -115,7 +123,7 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
                   contentPadding: const EdgeInsets.all(12),
                   title: Text(spot.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: FutureBuilder<SpotConditionsBundle>(
-                    future: _cache.getConditions(spot),
+                    future: _conditionsFor(spot),
                     builder: (context, snap) {
                       if (snap.hasError) {
                         return const Padding(
