@@ -1,12 +1,12 @@
+// Gráfica de una medida en su unidad, con eje Y de marcas redondeadas.
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import 'time_series_chart.dart';
 
-/// Redondea [roughStep] al siguiente "número bonito" (1, 2 o 5 por potencia
-/// de 10: 0.1, 0.2, 0.5, 1, 2, 5, 10, 20...), para que el eje Y tenga marcas
-/// enteras/redondas y equiespaciadas en vez de decimales pegados al mínimo y
-/// máximo exactos de los datos.
+/// Redondea [roughStep] al siguiente 1, 2 o 5 por potencia de 10 (0.1, 0.2,
+/// 0.5, 1, 2, 5...) para que el eje Y tenga marcas redondas.
 double _niceStep(double roughStep) {
   if (roughStep <= 0) return 1;
   var magnitude = 1.0;
@@ -35,14 +35,12 @@ String _formatTick(double value, double step) {
   return value.toStringAsFixed(2);
 }
 
-/// Gráfica de una medida concreta (temperatura, viento, oleaje, etc.) a lo
-/// largo del tiempo, con rejilla y el eje Y en su unidad. Los valores nulos
-/// (p. ej. datos marinos que no llegan tan lejos como los de tiempo) se
-/// dibujan como un hueco real en la línea, no como un cero.
+/// Gráfica de una medida (temperatura, viento, oleaje...) a lo largo del
+/// tiempo, con el eje Y en su unidad. Los valores nulos dejan un hueco en la
+/// línea en vez de dibujarse como cero.
 ///
-/// El eje Y se redondea a marcas "bonitas" y equiespaciadas ([_niceStep]),
-/// separadas del mínimo/máximo real de los datos: los propios puntos de la
-/// línea conservan su valor exacto, solo las etiquetas del eje se redondean.
+/// El redondeo de [_niceStep] afecta solo a las marcas del eje: los puntos
+/// conservan su valor exacto.
 class MeasurementChart extends StatelessWidget {
   final String title;
   final String unit;
@@ -50,8 +48,7 @@ class MeasurementChart extends StatelessWidget {
   final List<double?> values;
   final String Function(DateTime time) labelBuilder;
 
-  /// Posición fraccionaria en [times] a marcar como "ahora"; ver
-  /// [TimeSeriesChart.highlightPosition].
+  /// Ver [TimeSeriesChart.highlightPosition].
   final double? highlightPosition;
 
   const MeasurementChart({

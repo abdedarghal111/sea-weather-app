@@ -1,9 +1,11 @@
+// Gráfica de dirección del viento con su explicación para el usuario.
+
 import 'package:flutter/material.dart';
 
 import 'direction_arrows_chart.dart';
 
 /// Dirección del viento hora a hora o día a día. [directions] son grados de
-/// los que VIENE el viento; las flechas apuntan hacia dónde se dirige.
+/// los que viene el viento; las flechas apuntan hacia dónde se dirige.
 class WindDirectionChart extends StatelessWidget {
   final List<DateTime> times;
   final List<double?> directions;

@@ -1,3 +1,5 @@
+// Buscador de localidades por nombre contra la Geocoding API de Open-Meteo.
+
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -49,8 +51,8 @@ class GeocodingApi {
       throw translateApiError(response.statusCode, body?['reason'] as String?);
     }
 
-    // Sin coincidencias el buscador omite la clave "results" en vez de
-    // devolver una lista vacía.
+    // Sin coincidencias, la API omite "results" en vez de devolver lista
+    // vacía.
     final results = body['results'] as List<dynamic>?;
     if (results == null) return [];
 

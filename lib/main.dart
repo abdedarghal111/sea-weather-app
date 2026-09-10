@@ -1,3 +1,5 @@
+// Punto de entrada de la app: tema global y pantalla inicial.
+
 import 'package:flutter/material.dart';
 
 import 'screens/saved_locations_screen.dart';
@@ -14,11 +16,8 @@ class SeaWeatherApp extends StatelessWidget {
     return MaterialApp(
       title: 'Tiempo de playa',
       theme: ThemeData(colorSchemeSeed: Colors.blue, useMaterial3: true),
-      // Sin esto, en Android moderno (edge-to-edge por defecto) el contenido
-      // se dibuja detrás de la barra de navegación del sistema (los 3
-      // botones clásicos o el gesto inferior). El AppBar de cada pantalla ya
-      // respeta la barra de estado superior por sí solo, así que aquí solo
-      // hace falta reservar espacio abajo (y a los lados, por si acaso).
+      // En Android edge-to-edge el contenido queda bajo la barra de
+      // navegación; arriba ya lo resuelve el AppBar de cada pantalla.
       builder: (context, child) => SafeArea(top: false, child: child!),
       home: const SavedLocationsScreen(),
     );

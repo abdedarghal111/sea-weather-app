@@ -1,9 +1,9 @@
+// Errores de las APIs de Open-Meteo traducidos a mensajes para el usuario.
+
 import 'dart:async';
 
-/// Motivo por el que una consulta a Open-Meteo (previsión o buscador de
-/// localidades) no ha dado datos. Cada valor se muestra al usuario con un
-/// mensaje distinto: sin esto, un rechazo de la API y una falta de cobertura
-/// acaban en el mismo "no se pudo obtener el tiempo".
+/// Motivo por el que una consulta a Open-Meteo no ha dado datos. Cada valor
+/// se muestra con un mensaje distinto.
 enum ApiErrorKind {
   network,
   timeout,
@@ -30,9 +30,8 @@ class ApiException implements Exception {
     this.reason,
   });
 
-  /// Si volver a intentarlo tiene alguna posibilidad de funcionar. Una
-  /// coordenada inválida no la tiene; un 5xx, un corte de red o un límite de
-  /// peticiones simultáneas, sí.
+  /// Si reintentar puede funcionar: un 5xx, un corte de red o un límite de
+  /// peticiones sí; unas coordenadas inválidas no.
   bool get isRetryable =>
       kind == ApiErrorKind.network ||
       kind == ApiErrorKind.timeout ||
@@ -43,10 +42,9 @@ class ApiException implements Exception {
   String toString() => 'ApiException(${kind.name}, status: $statusCode, reason: $reason)';
 }
 
-/// Traducción de los `reason` que devuelve Open-Meteo en sus respuestas de
-/// error. Se comparan como subcadenas en minúsculas porque el texto de la API
-/// incluye el valor recibido ("Given: 999.0") y a veces lo reporta mal, así
-/// que no sirve como clave exacta.
+/// Traducción de los `reason` que devuelve Open-Meteo. Se comparan como
+/// subcadenas en minúsculas: el texto incluye el valor recibido ("Given:
+/// 999.0"), así que no sirve como clave exacta.
 const _reasonTranslations = <(String, ApiErrorKind, String)>[
   (
     'latitude must be in range',
@@ -105,8 +103,8 @@ const _reasonTranslations = <(String, ApiErrorKind, String)>[
   ),
 ];
 
-/// Mensaje por defecto según el código HTTP, para cuando el `reason` no
-/// coincide con nada conocido o no viene.
+/// Mensaje por defecto según el código HTTP, cuando el `reason` no viene o
+/// no coincide con ninguno conocido.
 (ApiErrorKind, String) _fromStatusCode(int statusCode) {
   if (statusCode == 429) {
     return (
@@ -132,8 +130,8 @@ const _reasonTranslations = <(String, ApiErrorKind, String)>[
   );
 }
 
-/// Construye la excepción de una respuesta no satisfactoria: primero busca el
-/// `reason` en la tabla y, si no está, cae al mensaje del código HTTP.
+/// Excepción de una respuesta con error: busca el `reason` en la tabla y, si
+/// no está, cae al mensaje del código HTTP.
 ApiException translateApiError(int statusCode, String? reason) {
   if (reason != null) {
     final needle = reason.toLowerCase();
@@ -147,8 +145,7 @@ ApiException translateApiError(int statusCode, String? reason) {
   return ApiException(kind, message, statusCode: statusCode, reason: reason);
 }
 
-/// Mensaje para cualquier fallo antes de tener respuesta: DNS, socket caído,
-/// TLS, timeout.
+/// Excepción de un fallo previo a la respuesta: DNS, socket, TLS o timeout.
 ApiException translateTransportError(Object error) {
   if (error is TimeoutException) {
     return const ApiException(

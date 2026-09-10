@@ -1,3 +1,5 @@
+// Pantalla inicial: localidades guardadas con su resumen de valoraciones.
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -29,8 +31,8 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
     _locationsFuture = _repository.loadLocations();
   }
 
-  /// Un Future por localidad, creado una sola vez. Si se crearan dentro del
-  /// `itemBuilder`, cada rebuild o cada scroll relanzaría la consulta.
+  /// Un Future por localidad, creado una sola vez: dentro del `itemBuilder`
+  /// cada rebuild o cada scroll relanzaría la consulta.
   final _forecastFutures = <String, Future<LocationForecast>>{};
 
   Future<LocationForecast> _forecastFor(Location location) => _forecastFutures.putIfAbsent(

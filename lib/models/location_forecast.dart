@@ -1,14 +1,13 @@
+// Previsión completa de una localidad: ahora, por horas y por días.
+
 import 'forecast_point.dart';
 import 'weather_snapshot.dart';
 
-/// Agrupa el snapshot "ahora mismo" junto con la serie por horas (de hoy en
-/// adelante) y por días (próximos días) para una localidad, todo obtenido en
-/// las mismas dos llamadas a Open-Meteo.
+/// Agrupa el snapshot de "ahora" con las series por horas y por días de una
+/// localidad, todo obtenido en las mismas dos llamadas a Open-Meteo.
 class LocationForecast {
-  /// Versión del esquema de caché: al cambiar la forma de esta previsión
-  /// (p.ej. renombrar campos o añadir listas anidadas nuevas) se sube este
-  /// número para invalidar cachés antiguas de forma explícita, además del
-  /// try/catch de parseo.
+  /// Versión del esquema serializado: subirla invalida las cachés antiguas
+  /// al cambiar la forma de la previsión.
   static const schemaVersion = 9;
 
   final WeatherSnapshot now;

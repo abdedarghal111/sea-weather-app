@@ -1,3 +1,5 @@
+// Localidad guardada por el usuario: nombre y coordenadas.
+
 class Location {
   final String id;
   final String name;

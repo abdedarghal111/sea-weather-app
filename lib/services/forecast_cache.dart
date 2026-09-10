@@ -1,3 +1,5 @@
+// Caché en disco de la previsión de cada localidad.
+
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show compute;
@@ -7,27 +9,22 @@ import '../models/location.dart';
 import '../models/location_forecast.dart';
 import 'open_meteo_api.dart';
 
-/// Deserializa la previsión completa (hasta ~384 puntos horarios, cada uno con
-/// su propio [WeatherSnapshot] anidado) fuera del isolate principal: hecho
-/// en el hilo de UI, este `jsonDecode` + reconstrucción de objetos puede
-/// bloquear varios frames en un móvil de gama baja. Debe ser una función de
-/// nivel superior (no un closure/método de instancia) para poder pasarse a
-/// [compute].
+/// Deserializa la previsión completa (cientos de puntos horarios) fuera del
+/// isolate principal, donde bloquearía varios frames. Es una función de
+/// nivel superior porque [compute] no admite closures ni métodos.
 LocationForecast _decodeForecast(String raw) =>
     LocationForecast.fromJson(jsonDecode(raw) as Map<String, dynamic>);
 
-/// Igual que [_decodeForecast] pero para serializar al guardar en caché.
+/// Contrapartida de [_decodeForecast] para guardar en caché.
 String _encodeForecast(LocationForecast forecast) => jsonEncode(forecast.toJson());
 
-/// Cachea la previsión de cada localidad durante [ttl] para no llamar a la API
-/// en cada apertura de pantalla.
+/// Cachea la previsión de cada localidad durante [ttl] para no llamar a la
+/// API en cada apertura de pantalla.
 class ForecastCache {
   static const ttl = Duration(minutes: 15);
 
-  /// Peticiones en curso por localidad, compartidas entre pantallas. Sin esto,
-  /// dos reconstrucciones seguidas de la lista lanzan la misma consulta varias
-  /// veces y la API responde 429 "too many concurrent requests" a las
-  /// sobrantes.
+  /// Peticiones en curso por localidad, compartidas entre pantallas: sin
+  /// esto, dos rebuilds seguidos repiten la consulta y la API responde 429.
   static final _inFlight = <String, Future<LocationForecast>>{};
 
   String _key(String coordinatesKey) => 'conditions_cache_$coordinatesKey';
@@ -39,7 +36,7 @@ class ForecastCache {
     try {
       return await compute(_decodeForecast, raw);
     } catch (_) {
-      // Caché de un esquema antiguo o corrupta: se trata como si no existiera.
+      // Caché corrupta o de un esquema antiguo: como si no existiera.
       return null;
     }
   }
@@ -50,9 +47,9 @@ class ForecastCache {
     await prefs.setString(_key(coordinatesKey), raw);
   }
 
-  /// Devuelve la previsión de [location]: usa la caché si tiene menos de 15
-  /// minutos, o llama a la API y actualiza la caché en caso contrario.
-  /// Con [forceRefresh] se ignora la caché (pull-to-refresh).
+  /// Previsión de [location]: la caché si sigue dentro del [ttl], o una
+  /// consulta a la API que la actualiza. Con [forceRefresh] se ignora la
+  /// caché (pull-to-refresh).
   Future<LocationForecast> forecastFor(Location location, {bool forceRefresh = false}) async {
     if (!forceRefresh) {
       final cached = await _readStored(location.coordinatesKey);
@@ -73,6 +70,8 @@ class ForecastCache {
     }
   }
 
+  /// Consulta la API y guarda el resultado; si falla, sirve la caché
+  /// caducada antes que dejar la pantalla sin datos.
   Future<LocationForecast> _fetchAndStore(Location location) async {
     try {
       final fresh = await OpenMeteoApi.fetchForecast(location);

@@ -1,8 +1,9 @@
+// Punto de una serie temporal de previsión: instante más condiciones.
+
 import 'weather_snapshot.dart';
 
-/// Un [WeatherSnapshot] anclado a un instante concreto (una hora o un día),
-/// para poder dibujarlo como serie temporal reutilizando tal cual los métodos
-/// rateX() de [WeatherSnapshot].
+/// Un [WeatherSnapshot] anclado a un instante (una hora o un día), para
+/// dibujarlo como serie temporal reutilizando sus métodos `rateX()`.
 class ForecastPoint {
   final DateTime time;
   final WeatherSnapshot weather;

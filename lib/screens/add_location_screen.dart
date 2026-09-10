@@ -1,3 +1,5 @@
+// Pantalla para añadir una localidad, por búsqueda de nombre o por mapa.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -50,9 +52,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> with SingleTicker
       final results = await GeocodingApi.search(_searchController.text);
       setState(() {
         _results = results;
-        // El buscador solo indexa poblaciones: playas, lagos y embalses no
-        // aparecen por nombre, y sin este aviso la lista se quedaba vacía sin
-        // explicar por qué.
+        // El buscador solo indexa poblaciones: sin este aviso, buscar una
+        // playa o un embalse deja la lista vacía sin explicación.
         _searchError = results.isEmpty && _searchController.text.trim().isNotEmpty
             ? 'Sin resultados. El buscador solo encuentra pueblos y ciudades: '
                 'para una playa, cala, lago o embalse, usa la pestaña Mapa.'

@@ -1,16 +1,16 @@
+// Serie temporal de direcciones dibujada como una fila de flechas.
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import 'time_series_sampling.dart';
 
-/// Fila de flechas mostrando una dirección por hora o por día, en vez de un
-/// valor numérico: el usuario compara la flecha con la orientación de su
-/// playa y decide él mismo, sin que la app necesite conocer esa orientación.
+/// Fila de flechas con una dirección por hora o por día, para que el usuario
+/// la compare con la orientación de su playa.
 ///
-/// [directions] son grados de los que VIENE el fenómeno (convención
-/// meteorológica, 0°/360° = norte, que es la que usan tanto el viento como el
-/// oleaje en Open-Meteo); cada flecha se dibuja rotada 180° para apuntar
+/// [directions] son grados de los que viene el fenómeno (convención
+/// meteorológica, 0°/360° = norte); cada flecha se rota 180° para apuntar
 /// hacia dónde se dirige.
 class DirectionArrowsChart extends StatelessWidget {
   final String title;

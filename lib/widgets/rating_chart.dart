@@ -1,19 +1,19 @@
+// Gráfica de la evolución de una valoración en el tiempo.
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import 'time_series_chart.dart';
 
-/// Gráfica de una valoración (0 a 1) a lo largo del tiempo, con las mismas 5
-/// bandas de color que [RatingGauge] de fondo: es el termómetro actual
-/// "desenrollado" en el eje de tiempo en vez de un único marcador.
+/// Gráfica de una valoración (de 0 a 1) a lo largo del tiempo, con las cinco
+/// bandas de color del termómetro de fondo.
 class RatingChart extends StatelessWidget {
   final String title;
   final List<DateTime> times;
   final List<double> scores;
   final String Function(DateTime time) labelBuilder;
 
-  /// Posición fraccionaria en [times] a marcar como "ahora"; ver
-  /// [TimeSeriesChart.highlightPosition].
+  /// Ver [TimeSeriesChart.highlightPosition].
   final double? highlightPosition;
 
   const RatingChart({

@@ -1,3 +1,5 @@
+// Persistencia de las localidades guardadas por el usuario.
+
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,8 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/location.dart';
 
 class LocationsRepository {
-  // El valor de la clave no se toca aunque el nombre sí: cambiarlo dejaría
-  // fuera de alcance las localidades ya guardadas en el dispositivo.
+  // Cambiar este valor dejaría inaccesibles las localidades ya guardadas en
+  // el dispositivo.
   static const _storageKey = 'saved_spots';
 
   Future<List<Location>> loadLocations() async {

@@ -1,10 +1,12 @@
+// Pruebas de las valoraciones de WeatherSnapshot: nivel y score de cada una.
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sea_weather_app/models/weather_snapshot.dart';
 
-// Copia de los helpers privados `_lowerIsBetterScore` / `_higherIsBetterScore`
-// de lib/models/weather_snapshot.dart, para poder predecir aquí el score
-// numérico exacto (los originales son privados de ese fichero). Si cambia la
-// fórmula de producción, hay que actualizar también estos.
+// Copia de los helpers privados `_lowerIsBetterScore` y
+// `_higherIsBetterScore` de lib/models/weather_snapshot.dart, para predecir
+// aquí el score exacto. Si cambia la fórmula de producción, hay que
+// actualizar también estos.
 double _mirrorLowerIsBetter(double value, double t1, double t2, double t3, double t4) {
   if (value < t1) return 0.9;
   if (value < t2) return 0.6 + 0.2 * (1 - (value - t1) / (t2 - t1));
@@ -235,7 +237,8 @@ void main() {
       });
 
       test('tie-break: among two checks at the same level, the lower (worse) score wins', () {
-        // wind at 21 km/h -> ok, score ~0.58; local wave at 0.75m -> ok, score ~0.47.
+        // Viento de 21 km/h y oleaje local de 0.75 m caen los dos en el
+        // tramo "fair", con scores distintos.
         final r = _snapshot(windSpeed: 21, windWaveHeight: 0.75, precipitationPast48h: 0)
             .rateWaterClarity();
         final windOnlyScore = _mirrorLowerIsBetter(21, 15, 20, 30, 40);
@@ -323,20 +326,18 @@ void main() {
       });
 
       test('0.9m (mid "good" band) is good', () {
-        // period omitted and wind pinned at its veryGood plateau (better
-        // level than "good") so neither can out-rank the swell check here.
+        // Sin periodo y con el viento en su meseta veryGood, ninguna otra
+        // comprobación puede superar a la del tamaño de ola.
         final r = _snapshot(swellHeight: 0.9, windSpeed: 0).rateSurf();
         expect(r.level, RatingLevel.good);
         expect(r.score, closeTo(0.7, _tol));
       });
 
       test('1.5m is the sweet spot for swell size, but the combined rating caps at 0.9', () {
-        // The swell-height formula alone peaks at 1.0 for a 1.5m swell, but
-        // rateSurf() always also folds in a wind check whose own best
-        // possible score is a flat 0.9 (see _ascendingScore's plateau). Once
-        // both checks tie at veryGood, the tiebreak picks the LOWER score,
-        // so the wind check's 0.9 wins over swell's 1.0. In practice a
-        // perfect-size swell can never push the overall surf score above 0.9.
+        // El tamaño de ola llega a 1.0 con 1.5 m, pero rateSurf() incluye
+        // siempre la comprobación de viento, cuyo mejor score es 0.9. Al
+        // empatar ambas en veryGood gana la de menor score, así que el surf
+        // nunca pasa de 0.9.
         final r = _snapshot(swellHeight: 1.5, windSpeed: 0).rateSurf();
         expect(r.level, RatingLevel.veryGood);
         expect(r.score, closeTo(0.9, _tol));
@@ -433,8 +434,8 @@ void main() {
       });
 
       test('18 km/h wind rates only "ok" for surf while the same wind is "good" for water clarity', () {
-        // Surf uses stricter thresholds (10/15/20/25) than water clarity's
-        // (15/20/30/40), so identical wind is judged more harshly for surf.
+        // El surf usa umbrales más estrictos (10/15/20/25) que el agua
+        // clara (15/20/30/40), así que el mismo viento puntúa peor.
         final surf = _snapshot(swellHeight: 1.5, swellPeriod: 12, windSpeed: 18).rateSurf();
         final clarity = _snapshot(windSpeed: 18, waveHeight: 0.1).rateWaterClarity();
         expect(surf.level, RatingLevel.fair);

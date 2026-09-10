@@ -1,3 +1,6 @@
+// Consulta a Open-Meteo (previsión y datos marinos) y conversión de sus
+// respuestas en la previsión que usa la app.
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -13,24 +16,21 @@ import 'api_error.dart';
 const _requestTimeout = Duration(seconds: 15);
 
 class OpenMeteoApi {
-  // Con past_days=2 y forecast_days=16 los arrays diarios traen 18 entradas
-  // [anteayer, ayer, hoy, +1...+15] y los horarios 18*24 horas en el mismo
-  // orden cronológico: hoy empieza en el índice pastDays*24.
+  // Los arrays llegan en orden cronológico empezando por el primer día
+  // pasado: hoy es el índice _pastDays en los diarios y _pastDays*24 en los
+  // horarios.
   static const _pastDays = 2;
   static const _forecastDays = 16; // máximo que permite Open-Meteo
 
-  // El modelo marino solo llega a unos 9 días: más allá devolvía arrays
-  // rellenos de null, casi el doble de payload para nada.
+  // El modelo marino solo llega a unos 9 días; más allá devuelve null.
   static const _marineForecastDays = 10;
 
-  /// Open-Meteo limita las peticiones **simultáneas** (responde 429 "too many
-  /// concurrent requests" a partir de unas cinco a la vez), aparte de la
-  /// cuota por minuto. Con varias localidades en pantalla es fácil pasarse,
-  /// así que las consultas se encolan.
+  /// Open-Meteo limita las peticiones simultáneas (429 a partir de unas
+  /// cinco), así que las consultas se encolan.
   static final _requestGate = _RequestGate(4);
 
-  /// Espera entre reintentos de un fallo transitorio. Un 429 por concurrencia
-  /// se despeja en milisegundos.
+  /// Espera entre reintentos: un 429 por concurrencia se despeja en
+  /// milisegundos.
   static const _retryDelays = [
     Duration(milliseconds: 250),
     Duration(milliseconds: 750),
@@ -49,8 +49,8 @@ class OpenMeteoApi {
     }
   }
 
-  /// Una sola consulta. Una respuesta no-200 trae `{"error": true, "reason":
-  /// "..."}`, así que el motivo se saca de ahí cuando existe.
+  /// Una sola consulta. Las respuestas de error traen `{"error": true,
+  /// "reason": "..."}`, y de ahí sale el motivo cuando existe.
   static Future<Map<String, dynamic>> _getJson(Uri uri) async {
     final http.Response response;
     try {
@@ -64,7 +64,7 @@ class OpenMeteoApi {
       final decoded = jsonDecode(response.body);
       if (decoded is Map<String, dynamic>) body = decoded;
     } catch (_) {
-      // Cuerpo que no es JSON: se trata igual que un cuerpo inesperado.
+      // Cuerpo no JSON: se trata como respuesta inesperada más abajo.
     }
 
     if (response.statusCode != 200) {
@@ -76,10 +76,9 @@ class OpenMeteoApi {
     return body;
   }
 
-  /// Lee un array numérico de la respuesta admitiendo huecos. Una clave
-  /// ausente o de otro tipo se trata como array vacío, no como error: la API
-  /// devuelve 200 con la unidad "undefined" y todo null cuando la variable no
-  /// aplica a ese punto.
+  /// Lee un array numérico admitiendo huecos. Una clave ausente o de otro
+  /// tipo da un array vacío, no un error: la API responde 200 con todo null
+  /// cuando la variable no aplica al punto.
   static List<num?> _numList(dynamic raw) {
     if (raw is! List) return const [];
     return raw.map((v) => v is num ? v : null).toList(growable: false);
@@ -113,9 +112,8 @@ class OpenMeteoApi {
       '&timezone=auto&forecast_days=$_marineForecastDays&past_days=$_pastDays',
     );
 
-    // La marina se pide en paralelo pero su fallo no puede tumbar la
-    // previsión: una zona de interior o un rechazo puntual del servicio
-    // marino dejan la app sin oleaje, no sin tiempo.
+    // La consulta marina va en paralelo y su fallo no tumba la previsión:
+    // un punto de interior queda sin oleaje, no sin tiempo.
     final results = await Future.wait([
       _fetchJson(forecastUri),
       _fetchJson(marineUri).then<Map<String, dynamic>?>((json) => json).catchError((_) => null),
@@ -137,10 +135,9 @@ class OpenMeteoApi {
     final marineDaily = marine?['daily'] as Map<String, dynamic>?;
     final marineHourly = marine?['hourly'] as Map<String, dynamic>?;
 
-    // Todo lo que viene de la API se lee como anulable. La Forecast API
-    // devuelve null en las últimas horas y en el último día cuando la zona
-    // horaria del punto tiene desfase negativo respecto a UTC, y `cast<num>()`
-    // en Dart es perezoso: no falla al castear, falla al leer.
+    // Todo se lee como anulable: la API devuelve null en las últimas horas
+    // y el último día cuando el punto tiene desfase negativo respecto a UTC,
+    // y `cast<num>()` es perezoso (no falla al castear, sino al leer).
     final dailyTime = _stringList(daily['time']);
     final dailyTemp = _numList(daily['temperature_2m_max']);
     final dailyApparentTemp = _numList(daily['apparent_temperature_max']);
@@ -180,8 +177,7 @@ class OpenMeteoApi {
 
     final todayIndex = _pastDays;
 
-    // "Sostenido/reciente" = media (viento) o suma (lluvia) de los 2 días
-    // anteriores a [dayIndex], sin incluir ese propio día.
+    // "Reciente" = los 2 días anteriores a [dayIndex], sin incluirlo.
     double? recentDailyAverage(List<num?> values, int dayIndex) {
       if (dayIndex <= 0) return null;
       return trailingAverage(values, dayIndex - 1, 2);
@@ -192,18 +188,12 @@ class OpenMeteoApi {
       return trailingSum(values, dayIndex - 1, 2);
     }
 
-    // El oleaje reciente sale siempre del array horario marino, con la misma
-    // ventana de 48 h para las tres vistas (ahora, por horas y por días): así
-    // la pestaña "Ahora" y la gráfica por horas no pueden contradecirse.
-    // [trailingRms] explica por qué es una media cuadrática y no un máximo.
-    // Los arrays marinos son MÁS CORTOS que los meteorológicos (el modelo de
-    // olas llega a menos días), así que fuera de su alcance devuelve null en
-    // vez de un valor inventado.
+    // El oleaje reciente sale del array horario marino con la misma ventana
+    // de 48 h en las tres vistas, para que no se contradigan entre sí.
     int lastHourOfDay(int dayIndex) => dayIndex * 24 + 23;
 
-    // La API marina no ofrece agregados diarios nativos para oleaje de
-    // fondo/viento/temperatura del agua (solo wave_height_max): se derivan
-    // agrupando el array horario marino por día de calendario.
+    // La API marina solo trae wave_height_max como agregado diario: el
+    // resto se deriva agrupando su array horario por día.
     double? marineDailyMax(List<num?>? hourlyValues, int dayIndex) {
       if (hourlyValues == null) return null;
       final start = dayIndex * 24;
@@ -233,16 +223,15 @@ class OpenMeteoApi {
       return sum / count;
     }
 
-    // Lectura por índice tolerante a arrays más cortos de lo pedido. Los
-    // marinos, además, pueden no existir (punto no costero) o acabarse antes
-    // del horizonte del modelo de olas: en ambos casos devuelve null igual.
+    // Lectura por índice tolerante a arrays más cortos de lo pedido o
+    // inexistentes, como los marinos de un punto de interior.
     num? numberAt(List<num?>? values, int i) =>
         (values != null && i < values.length) ? values[i] : null;
     String? stringAt(List<String?> values, int i) => i < values.length ? values[i] : null;
     DateTime? parseTime(String? raw) => raw == null ? null : DateTime.tryParse(raw);
 
-    // La tarjeta "ahora" es lo mínimo que la pantalla necesita: si el día de
-    // hoy llega incompleto, la respuesta no sirve y se dice por qué.
+    // Sin los datos de hoy la pantalla no puede pintar nada: la respuesta
+    // se rechaza indicando qué campo faltaba.
     double requireTodayValue(List<num?> values, String field) {
       final value = numberAt(values, todayIndex);
       if (value == null) {
@@ -255,10 +244,9 @@ class OpenMeteoApi {
       return value.toDouble();
     }
 
-    // Hora del array que corresponde a "ahora". Los tiempos vienen en la zona
-    // horaria del punto (timezone=auto) y se comparan con la del dispositivo:
-    // para una playa cercana son la misma, y en un punto lejano lo único que
-    // pasa es que el resumen de oleaje reciente se desplaza unas horas.
+    // Índice horario correspondiente a "ahora". Los tiempos vienen en la
+    // zona horaria del punto y se comparan con la del dispositivo: en un
+    // punto lejano el resumen de oleaje reciente se desplaza unas horas.
     int nowHourIndex() {
       final now = DateTime.now();
       for (var i = hourlyTime.length - 1; i >= 0; i--) {
@@ -269,7 +257,7 @@ class OpenMeteoApi {
     }
 
     final nowSnapshot = WeatherSnapshot(
-      // Los valores de `current` pueden faltar: se cae al agregado de hoy.
+      // Si falta un valor de `current` se cae al agregado de hoy.
       apparentTemperature: (current['apparent_temperature'] as num?)?.toDouble() ??
           requireTodayValue(dailyApparentTemp, 'apparent_temperature_max'),
       cloudCover: (current['cloud_cover'] as num?)?.toDouble() ??
@@ -299,13 +287,12 @@ class OpenMeteoApi {
       fetchedAt: DateTime.now(),
     );
 
-    // Por horas: de hoy 0:00 hasta el final del array (últimos días de forecast).
+    // Serie horaria: desde hoy a las 0:00 hasta el final del array.
     final todayHourStart = todayIndex * 24;
     final hourlyPoints = <ForecastPoint>[];
     for (var i = todayHourStart; i < hourlyTime.length; i++) {
-      // Una hora sin todos sus datos se omite: es lo que devuelve la API en
-      // las últimas horas del rango cuando el punto tiene desfase horario
-      // negativo respecto a UTC. Mejor un hueco en la gráfica que un fallo.
+      // Una hora incompleta se omite: mejor un hueco en la gráfica que un
+      // fallo.
       final time = parseTime(stringAt(hourlyTime, i));
       final temp = numberAt(hourlyTemp, i);
       final apparentTemp = numberAt(hourlyApparentTemp, i);
@@ -315,8 +302,8 @@ class OpenMeteoApi {
       final gusts = numberAt(hourlyGusts, i);
       final uv = numberAt(hourlyUv, i);
       final code = numberAt(hourlyWeatherCode, i);
-      // sunshine_duration solo existe como agregado diario: se reutiliza el
-      // valor de ese día para todas sus horas.
+      // sunshine_duration solo existe por día: se reutiliza el valor del día
+      // en todas sus horas.
       final sunshine = numberAt(dailySunshine, i ~/ 24);
       if (time == null ||
           temp == null ||
@@ -362,11 +349,10 @@ class OpenMeteoApi {
       ));
     }
 
-    // Próximos días: de hoy (incluido) hasta el final del array diario.
+    // Serie diaria: desde hoy hasta el final del array.
     final dailyPoints = <ForecastPoint>[];
     for (var d = todayIndex; d < dailyTime.length; d++) {
-      // Mismo criterio que en el bucle horario: el último día del rango llega
-      // sin agregados cuando el desfase horario es negativo.
+      // Mismo criterio que en el bucle horario: un día incompleto se omite.
       final time = parseTime(stringAt(dailyTime, d));
       final temp = numberAt(dailyTemp, d);
       final apparentTemp = numberAt(dailyApparentTemp, d);
@@ -431,7 +417,7 @@ class OpenMeteoApi {
   }
 }
 
-/// Deja pasar como mucho [maxConcurrent] operaciones a la vez y encola el
+/// Deja correr como mucho [maxConcurrent] operaciones a la vez y encola el
 /// resto en orden de llegada.
 class _RequestGate {
   _RequestGate(this.maxConcurrent);

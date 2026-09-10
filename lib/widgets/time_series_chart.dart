@@ -1,34 +1,32 @@
+// Armazón compartido por las gráficas temporales de la app.
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import 'time_series_sampling.dart';
 
-/// Armazón común de las gráficas temporales de la app ([MeasurementChart] y
-/// [RatingChart]): título, rejilla punteada, etiquetas de tiempo en el eje X,
-/// línea vertical de "ahora" y tooltip. Lo que cambia de una a otra son los
-/// límites del eje Y, las bandas de fondo y cómo se escribe cada valor.
+/// Base común de las gráficas temporales: título, rejilla, etiquetas de
+/// tiempo, línea de "ahora" y tooltip. Cada gráfica aporta los límites del
+/// eje Y, las bandas de fondo y el formato de los valores.
 ///
-/// Siempre ocupa el ancho disponible y dibuja todos los puntos reales (la
-/// forma completa de los datos); si no caben todas las etiquetas y líneas de
-/// rejilla con una separación legible, se etiquetan menos horas (una de cada
-/// N) en vez de desbordar la pantalla y requerir scroll horizontal.
+/// Ocupa el ancho disponible y dibuja todos los puntos; si no caben todas
+/// las etiquetas, se rotula una de cada N en vez de exigir scroll.
 class TimeSeriesChart extends StatelessWidget {
   final String title;
   final double height;
   final List<DateTime> times;
   final String Function(DateTime time) labelBuilder;
 
-  /// Posición fraccionaria en [times] (p. ej. 2.5 = a medio camino entre el
-  /// punto 2 y el 3) a marcar con una línea vertical roja, típicamente la
-  /// hora y minuto actuales; `null` si no aplica (el rango mostrado no
-  /// incluye "ahora").
+  /// Posición fraccionaria en [times] (2.5 = a medio camino entre el punto 2
+  /// y el 3) donde va la línea roja de "ahora", o `null` si el rango
+  /// mostrado no lo incluye.
   final double? highlightPosition;
 
   final double minY;
   final double maxY;
 
-  /// Separación entre líneas de la rejilla horizontal, y entre marcas del eje
-  /// Y cuando [yAxisLabelBuilder] las dibuja.
+  /// Separación entre líneas de la rejilla horizontal y entre marcas del
+  /// eje Y.
   final double gridStep;
 
   /// Cómo se escribe una marca del eje Y, o `null` para no enseñar ese eje.

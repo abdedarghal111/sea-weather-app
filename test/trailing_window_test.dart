@@ -1,3 +1,5 @@
+// Pruebas de los agregados sobre ventanas: suma, media y media cuadrática.
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sea_weather_app/models/trailing_window.dart';
 
@@ -8,7 +10,7 @@ void main() {
     });
 
     test('clamps to available history at the start of the array', () {
-      expect(trailingSum([1, 2, 3], 1, 5), 3); // 1+2, only 2 entries exist
+      expect(trailingSum([1, 2, 3], 1, 5), 3); // 1+2, solo 2 entradas disponibles
     });
 
     test('a single-entry window returns that entry', () {
@@ -22,7 +24,7 @@ void main() {
     });
 
     test('clamps to available history at the start of the array', () {
-      expect(trailingAverage([10, 20, 30], 0, 5), 10); // only index 0 exists
+      expect(trailingAverage([10, 20, 30], 0, 5), 10); // solo el índice 0 existe
     });
   });
 

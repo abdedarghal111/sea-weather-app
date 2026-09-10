@@ -1,3 +1,6 @@
+// Pantalla de detalle de una localidad: pestañas de ahora, por horas y
+// próximos días.
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -14,30 +17,28 @@ import '../widgets/rating_gauge.dart';
 import '../widgets/wave_direction_chart.dart';
 import '../widgets/wind_direction_chart.dart';
 
-/// Una medida del tiempo o del mar, con todo lo que hace falta para
-/// enseñarla en los dos sitios donde aparece: como tarjeta en "Ahora" y como
-/// gráfica en las pestañas de serie temporal. Así la lista de medidas y su
-/// orden se declaran una sola vez.
+/// Una medida del tiempo o del mar con lo necesario para mostrarla en sus
+/// dos formas: tarjeta en "Ahora" y gráfica en las series temporales. Así la
+/// lista de medidas y su orden se declaran una sola vez.
 class MeasurementSpec {
-  /// Título de la gráfica; también etiqueta de la tarjeta, salvo que
-  /// [tileLabel] diga otra cosa (en la tarjeta cabe algo más de texto).
+  /// Título de la gráfica, y también etiqueta de la tarjeta salvo que
+  /// [tileLabel] diga otra cosa.
   final String title;
   final String unit;
   final FaIconData icon;
   final String? tileLabel;
 
-  /// Null cuando la medida no aplica al punto: los datos marinos de una
-  /// localidad de interior.
+  /// Devuelve null cuando la medida no aplica al punto, como los datos
+  /// marinos de una localidad de interior.
   final double? Function(WeatherSnapshot) value;
 
   const MeasurementSpec(this.title, this.unit, this.icon, this.value, {this.tileLabel});
 
   String get label => tileLabel ?? title;
 
-  /// El valor escrito para la tarjeta de "Ahora", o "—" si no hay dato.
-  /// Milímetros y metros llevan un decimal (0.4 mm es información, "0 mm" no)
-  /// y el resto se redondea; los símbolos que se pegan al número van sin
-  /// espacio delante.
+  /// El valor para la tarjeta de "Ahora", o "—" si no hay dato. Milímetros
+  /// y metros llevan un decimal, porque redondear 0.4 mm a "0 mm" pierde el
+  /// dato; el resto se redondea.
   String formatted(WeatherSnapshot weather) {
     final measured = value(weather);
     if (measured == null) return '—';
@@ -49,8 +50,8 @@ class MeasurementSpec {
   }
 }
 
-/// No es `const` porque los extractores son funciones anónimas; a cambio la
-/// lista se lee de un tirón.
+/// Medidas que se muestran, en el orden en que aparecen. No es `const`
+/// porque los extractores son funciones anónimas.
 final _measurements = <MeasurementSpec>[
   MeasurementSpec('Temp. máx.', '°C', FontAwesomeIcons.temperatureHalf,
       (w) => w.airTemperature),
@@ -92,8 +93,8 @@ String _hourLabel(DateTime time) => '${time.hour}h';
 String _timeLabel(DateTime time) =>
     '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 
-/// Franja de horas mostrada en el panel "Por horas": solo las horas de luz o
-/// el día entero.
+/// Franja horaria mostrada en la pestaña "Por horas": solo las horas de luz
+/// o el día entero.
 enum HourlyWindow { daylight, fullDay }
 
 const _daylightStartHour = 8;
@@ -102,8 +103,7 @@ const _daylightEndHour = 22;
 String _dayLabel(DateTime time) =>
     '${_weekdayNames[time.weekday - 1]} ${time.day}';
 
-/// Cabecera del selector de día del panel "Por horas": "Hoy", "Mañana" o
-/// "lun 4 ago" para el resto.
+/// Cabecera del selector de día: "Hoy", "Mañana" o "lun 4 ago".
 String _hourlyDayHeaderLabel(DateTime date) {
   final today = DateTime.now();
   final difference = DateTime(date.year, date.month, date.day)
@@ -142,8 +142,8 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     try {
       await _forecast;
     } catch (_) {
-      // El FutureBuilder ya muestra el estado de error; aquí solo evitamos
-      // que quede como excepción asíncrona sin capturar.
+      // El FutureBuilder ya pinta el error; esto solo evita que quede como
+      // excepción asíncrona sin capturar.
     }
   }
 
@@ -222,10 +222,8 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     );
   }
 
-  /// Posición fraccionaria (p. ej. 2.5 = a mitad de camino entre el punto 2
-  /// y el 3) del instante actual dentro de [points], o `null` si "ahora"
-  /// cae fuera del rango mostrado (se está viendo otro día, o la hora
-  /// actual queda fuera de la franja de horas de luz).
+  /// Posición fraccionaria del instante actual dentro de [points], o `null`
+  /// si "ahora" cae fuera del rango mostrado.
   double? _nowMarkerPosition(List<ForecastPoint> points) {
     if (points.isEmpty) return null;
     final now = DateTime.now();
@@ -244,15 +242,13 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     return (points.length - 1).toDouble();
   }
 
-  /// Las tarjetas de una pestaña de serie temporal, en orden: las 5 gráficas
-  /// de valoración, las 2 de dirección y una por cada medida de
+  /// Tarjetas de una pestaña de serie temporal, en orden: las cinco
+  /// gráficas de valoración, las dos de dirección y una por cada medida de
   /// [_measurements].
   ///
-  /// Devuelve constructores, no widgets: alimentan un `ListView.builder`, que
-  /// solo invoca los de las tarjetas que entran en pantalla o en su caché de
-  /// scroll. Construir las ~24 gráficas por adelantado en cada build (p. ej.
-  /// al cambiar de día en "Por horas") sí se nota, porque recorren todos los
-  /// puntos y llaman a los métodos rateX(), que no son gratis.
+  /// Devuelve constructores, no widgets: así el `ListView.builder` solo
+  /// construye las gráficas visibles, que recorren todos los puntos y
+  /// llaman a los métodos `rateX()`.
   List<Widget Function()> _seriesCards(
     List<ForecastPoint> points,
     List<DateTime> times,
@@ -315,8 +311,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
             ),
           ),
         ),
-        // Reintentar solo se sugiere cuando puede servir de algo: unas
-        // coordenadas inválidas no se arreglan deslizando.
+        // Reintentar solo se sugiere cuando puede funcionar.
         if (failure == null || failure.isRetryable) ...[
           const SizedBox(height: 8),
           const Center(child: Text('Desliza para reintentar.')),
@@ -358,9 +353,8 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
             final hourlyOffset = _clampedHourlyOffset(forecast);
             final hourlyPoints = _hourlySlice(forecast, hourlyOffset);
 
-            // Los selectores de día y de franja horaria son dos tarjetas más
-            // de la lista, así el índice de las gráficas no depende de
-            // cuántas cabeceras haya.
+            // Los selectores son dos tarjetas más de la lista, para que
+            // scrolleen con las gráficas.
             final hourlyCards = <Widget Function()>[
               () => _buildHourlyDaySelector(
                   forecast, hourlyOffset, _hourlyDayCount(forecast)),
@@ -404,9 +398,8 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   }
 
   Widget _buildNowTab(WeatherSnapshot weather) {
-    // Estas tres valoraciones titulan su termómetro con el propio nivel
-    // ("Agua cristalina", "Playa removida"...) en vez de con el nombre de la
-    // medida, que es lo que hacen Surf y Sol.
+    // Estas tres titulan su termómetro con el propio nivel ("Agua
+    // cristalina", "Playa removida"...), no con el nombre de la medida.
     final waterClarity = weather.rateWaterClarity();
     final shoreDisturbance = weather.rateShoreDisturbance();
     final rain = weather.rateRain();
@@ -446,8 +439,8 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                 label: spec.label,
                 value: spec.formatted(weather),
               ),
-            // El amanecer y el atardecer son horas, no medidas que se puedan
-            // dibujar en una gráfica, así que van aparte de [_measurements].
+            // Amanecer y atardecer son horas, no series que se puedan
+            // graficar, así que van fuera de [_measurements].
             MeasurementTile(
               icon: FontAwesomeIcons.solidSun,
               label: 'Amanecer',

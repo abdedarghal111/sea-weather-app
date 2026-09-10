@@ -1,5 +1,8 @@
-/// Nivel de una valoración, de mejor a peor. El índice se usa para comparar
-/// "cuál es peor" entre varias comprobaciones (ver [WeatherSnapshot._worstOf]).
+// Condiciones de un instante y las valoraciones (agua clara, playa
+// removida, surf, sol y lluvia) que se derivan de ellas.
+
+/// Nivel de una valoración, de mejor a peor. El índice ordena de menos a más
+/// grave (ver [WeatherSnapshot._worstOf]).
 enum RatingLevel { veryGood, good, fair, bad, veryBad }
 
 extension RatingLevelLabel on RatingLevel {
@@ -58,22 +61,19 @@ class Rating {
   final RatingLevel level;
   final String reason;
 
-  /// Posición continua dentro de la escala, de 0 (extremo "muy malo") a 1
-  /// (extremo "muy bueno"). Sirve para colocar el marcador de [RatingGauge]
-  /// de forma proporcional al valor real, no solo saltando entre 5 puntos.
+  /// Posición continua en la escala, de 0 ("muy malo") a 1 ("muy bueno"),
+  /// para situar el marcador del termómetro de forma proporcional al valor
+  /// real y no solo por el nivel en el que cae.
   final double score;
 
   const Rating({required this.level, required this.reason, required this.score});
 }
 
-/// Puntúa un valor donde MENOS es mejor (ej. viento, oleaje, lluvia),
-/// repartiendo la escala en 5 tramos de 0.2 según los mismos umbrales que
-/// determinan el nivel cualitativo, e interpolando dentro del tramo.
+/// Puntúa un valor donde menos es mejor (viento, oleaje, lluvia): reparte la
+/// escala en cinco tramos de 0.2 e interpola dentro del tramo.
 ///
-/// Usa `<` estricto (no `<=`) para que coincida exactamente con las
-/// comparaciones de los niveles cualitativos (`value < t1` => veryGood,
-/// etc.): así, justo en el valor de un umbral, nivel y score cambian de
-/// tramo a la vez en vez de que el score se quede "pegado" al tramo mejor.
+/// Los umbrales se comparan con `<` estricto, igual que los del nivel, para
+/// que nivel y score cambien de tramo a la vez.
 double _lowerIsBetterScore(double value, double t1, double t2, double t3, double t4) {
   if (value < t1) return 0.9;
   if (value < t2) return 0.6 + 0.2 * (1 - (value - t1) / (t2 - t1));
@@ -82,8 +82,8 @@ double _lowerIsBetterScore(double value, double t1, double t2, double t3, double
   return 0.1;
 }
 
-/// Igual que [_lowerIsBetterScore] pero para valores donde MÁS es mejor (ej.
-/// horas de sol, periodo de swell). t1 > t2 > t3 > t4.
+/// Igual que [_lowerIsBetterScore] pero donde más es mejor (horas de sol,
+/// periodo de swell): los umbrales van decreciendo.
 double _higherIsBetterScore(double value, double t1, double t2, double t3, double t4) {
   if (value >= t1) return 0.9;
   if (value >= t2) return 0.6 + 0.2 * (1 - (t1 - value) / (t1 - t2));
@@ -92,14 +92,13 @@ double _higherIsBetterScore(double value, double t1, double t2, double t3, doubl
   return 0.1;
 }
 
-/// Un tramo de una escala de valoración: el nivel cualitativo y el motivo que
-/// se enseñan para los valores que caen dentro de él. En [reason], `{}` se
-/// sustituye por el valor ya formateado (p. ej. "18").
+/// Tramo de una escala de valoración: nivel y motivo que se muestran para
+/// los valores que caen dentro. En [reason], `{}` se sustituye por el valor
+/// ya formateado.
 ///
-/// [limit] es el límite superior exclusivo del tramo en las escalas donde
-/// MENOS es mejor, y el inferior inclusivo donde MÁS es mejor. El último
-/// tramo recoge todo lo que queda fuera de los demás, así que su límite es el
-/// infinito que corresponda.
+/// [limit] es el límite superior exclusivo donde menos es mejor, y el
+/// inferior inclusivo donde más es mejor. El último tramo recoge el resto,
+/// con el infinito que corresponda.
 class _Band {
   final double limit;
   final RatingLevel level;
@@ -114,30 +113,26 @@ class _Band {
       );
 }
 
-/// Valora [value] sobre una escala de cinco tramos donde MENOS es mejor,
-/// ordenados del mejor al peor.
-///
-/// Los cuatro límites de la escala son a la vez los umbrales del nivel
-/// cualitativo y los del score ([_lowerIsBetterScore]): al estar escritos una
-/// sola vez no pueden desalinearse entre sí.
+/// Valora [value] sobre una escala de cinco tramos donde menos es mejor,
+/// ordenados del mejor al peor. Los mismos límites alimentan el nivel y el
+/// score, así que no pueden desalinearse.
 Rating _rateLowerIsBetter(double value, String formatted, List<_Band> bands) {
   final score = _lowerIsBetterScore(
       value, bands[0].limit, bands[1].limit, bands[2].limit, bands[3].limit);
   return bands.firstWhere((band) => value < band.limit)._rating(formatted, score);
 }
 
-/// Igual que [_rateLowerIsBetter] pero para las escalas donde MÁS es mejor:
-/// los límites son inferiores, inclusivos y van decreciendo.
+/// Igual que [_rateLowerIsBetter] pero donde más es mejor: los límites son
+/// inferiores, inclusivos y van decreciendo.
 Rating _rateHigherIsBetter(double value, String formatted, List<_Band> bands) {
   final score = _higherIsBetterScore(
       value, bands[0].limit, bands[1].limit, bands[2].limit, bands[3].limit);
   return bands.firstWhere((band) => value >= band.limit)._rating(formatted, score);
 }
 
-/// Tramo de la escala de tamaño de ola para surf, la única que no es
-/// monótona: el surf mejora hasta el punto dulce de 1.5 m y empeora a partir
-/// de ahí. Por eso cada tramo lleva su propio recorrido de score en vez de
-/// deducirlo del nivel, como hacen [_lowerIsBetterScore] y su pareja.
+/// Tramo de la escala de tamaño de ola para surf, la única no monótona: la
+/// calidad sube hasta 1.5 m y baja a partir de ahí, así que cada tramo lleva
+/// su propio recorrido de score en vez de deducirlo del nivel.
 class _SurfBand {
   /// Límite superior del tramo, inclusivo si [inclusive]. El tramo empieza
   /// donde acabó el anterior (el primero, en 0 m).
@@ -146,8 +141,7 @@ class _SurfBand {
   final RatingLevel level;
   final String reason;
 
-  /// Score en el extremo inferior y en el superior del tramo; dentro se
-  /// interpola linealmente entre ambos.
+  /// Score en cada extremo del tramo; dentro se interpola linealmente.
   final double scoreAtStart;
   final double scoreAtLimit;
 
@@ -183,8 +177,8 @@ const _swellSizeBands = [
       scoreAtStart: 0.4, scoreAtLimit: 0.6),
   _SurfBand(1.0, RatingLevel.good, 'Buen tamaño de ola ({} m) para surfear',
       scoreAtStart: 0.6, scoreAtLimit: 0.8, inclusive: true),
-  // El punto dulce parte en dos el tramo "excelente": el score sube hasta
-  // 1.5 m y vuelve a bajar, pero el nivel es el mismo a los dos lados.
+  // El tramo excelente va partido en dos: el score sube hasta 1.5 m y
+  // vuelve a bajar, con el mismo nivel a ambos lados.
   _SurfBand(1.5, RatingLevel.veryGood, 'Tamaño de ola excelente ({} m) para surfear',
       scoreAtStart: 0.8, scoreAtLimit: 1.0, inclusive: true),
   _SurfBand(2.0, RatingLevel.veryGood, 'Tamaño de ola excelente ({} m) para surfear',
@@ -197,7 +191,7 @@ const _swellSizeBands = [
       scoreAtStart: 0.4, scoreAtLimit: 0.2, inclusive: true),
 ];
 
-/// Por encima de 6 m no se distinguen grados: todo es igual de impracticable.
+/// Por encima de 6 m no se distinguen grados: todo es impracticable.
 const _hugeSwellBand = _SurfBand(
   double.infinity,
   RatingLevel.veryBad,
@@ -217,10 +211,9 @@ Rating _rateSwellSize(double swell) {
   return _hugeSwellBand._ratingAt(swell, start, formatted);
 }
 
-/// Las variables meteorológicas y marinas de un instante concreto. El mismo
-/// objeto describe el "ahora", cada hora de la previsión y cada día: por eso
-/// ningún campo lleva en el nombre el agregado (máximo, media) ni el periodo,
-/// salvo los que de verdad miran hacia atrás en el tiempo.
+/// Variables meteorológicas y marinas de un instante. El mismo objeto
+/// describe el "ahora", cada hora y cada día, así que los nombres no
+/// mencionan el agregado salvo cuando el campo mira hacia atrás en el tiempo.
 class WeatherSnapshot {
   final double airTemperature;
   final double apparentTemperature;
@@ -233,17 +226,15 @@ class WeatherSnapshot {
   final double uvIndex;
   final double cloudCover;
   final double sunshineHours;
-  // Código del periodo entero (para saber si va a haber tormenta en algún
-  // momento) vs. código del instante (para saber si hay niebla justo ahora):
-  // la niebla matinal en la costa no debe tumbar la valoración de sol de todo
-  // el día.
+  // Código del periodo entero (¿habrá tormenta en algún momento?) frente al
+  // del instante (¿hay niebla ahora?): la niebla matinal no debe tumbar la
+  // valoración de sol del día entero.
   final int periodWeatherCode;
   final int instantWeatherCode;
-  // Solo los datos marinos pueden faltar de verdad: la Marine API devuelve
-  // null cuando el punto no es costero.
+  // Los datos marinos faltan cuando el punto no es costero.
   final double? waveHeight;
-  // Altura de ola en media cuadrática de las últimas 48 h: el resumen de la
-  // energía que ha recibido la playa en esos dos días (ver [trailingRms]).
+  // Media cuadrática de la altura de ola de las últimas 48 h; ver
+  // [trailingRms].
   final double? rmsWaveHeightPast48h;
   final double? windWaveHeight;
   final double? swellHeight;
@@ -252,12 +243,9 @@ class WeatherSnapshot {
   final DateTime? sunrise;
   final DateTime? sunset;
   // Grados de los que sopla el viento (convención meteorológica: 0/360 =
-  // viento del norte). Solo se rellena en los puntos horarios; de ahí sale
-  // la flecha de WindDirectionChart, que la voltea 180° para mostrar hacia
-  // dónde se dirige el viento en vez de de dónde viene.
+  // del norte).
   final double? windFromDirection;
-  // Grados de los que vienen las olas, misma convención que el viento (la
-  // Marine API también reporta el origen, no el destino).
+  // Grados de los que vienen las olas, misma convención que el viento.
   final double? waveFromDirection;
   final DateTime fetchedAt;
 
@@ -342,14 +330,12 @@ class WeatherSnapshot {
         fetchedAt: DateTime.parse(json['fetchedAt'] as String),
       );
 
-  /// 1. ¿El agua está cristalina o turbia? El viento (medio y rachas) y el
-  /// oleaje de viento local remueven sedimento del fondo; la lluvia reciente
-  /// también enturbia por escorrentía. Esto es una estimación, no una
-  /// medición real de turbidez.
+  /// ¿El agua está clara o turbia? Estimación a partir del viento, el oleaje
+  /// local y la lluvia reciente; no es una medición de turbidez.
   Rating rateWaterClarity() {
-    // Las rachas no usan la tabla de tramos: es una escala parcial (por
-    // debajo de 20 km/h no añaden comprobación) y con los límites al revés
-    // que las demás, y sus umbrales de score no coinciden con los del nivel.
+    // Las rachas no usan tabla de tramos: la escala es parcial (por debajo
+    // de 20 km/h no añaden comprobación) y sus umbrales de score no
+    // coinciden con los del nivel.
     final gustScore = _lowerIsBetterScore(windGustSpeed, 10, 20, 30, 45);
     final localWave = windWaveHeight ?? waveHeight;
 
@@ -414,8 +400,8 @@ class WeatherSnapshot {
         'Oleaje fuerte ({} m), agua probablemente muy turbia'),
   ];
 
-  /// 2. ¿Va a haber playa removida (arena revuelta, escalones)? Viento y
-  /// oleaje sostenidos durante los últimos días, no solo ahora mismo.
+  /// ¿Estará la playa removida (arena revuelta, escalones)? Mira el viento y
+  /// el oleaje sostenidos de los últimos días, no el instante.
   Rating rateShoreDisturbance() {
     final recentWave = rmsWaveHeightPast48h;
 
@@ -442,11 +428,8 @@ class WeatherSnapshot {
         'Viento muy fuerte varios días seguidos ({} km/h)'),
   ];
 
-  // Umbrales más bajos que los del oleaje instantáneo porque este valor es
-  // una media cuadrática de 48 h, no un pico: un mar que llega a 1.2 m de
-  // media cuadrática durante dos días ha estado rompiendo mucho más fuerte
-  // en sus peores horas. Son una primera estimación, pendiente de
-  // contrastar con playas reales.
+  // Umbrales más bajos que los del oleaje instantáneo: al ser una media
+  // cuadrática de 48 h, un valor moderado implica horas mucho peores.
   static const _shoreWaveBands = [
     _Band(0.3, RatingLevel.veryGood, 'Oleaje en calma en días recientes ({} m)'),
     _Band(0.5, RatingLevel.good, 'Oleaje suave en días recientes ({} m)'),
@@ -457,9 +440,9 @@ class WeatherSnapshot {
         'Oleaje muy fuerte en días recientes ({} m)'),
   ];
 
-  /// 3. ¿Se puede hacer surf? Tamaño y periodo del oleaje de fondo (swell);
-  /// sin conocer la orientación de la playa no se evalúa offshore/onshore,
-  /// solo se penaliza el viento fuerte en general.
+  /// ¿Se puede hacer surf? Tamaño y periodo del oleaje de fondo. Sin saber
+  /// la orientación de la playa no se distingue offshore de onshore: solo se
+  /// penaliza el viento fuerte.
   Rating rateSurf() {
     final swell = swellHeight;
     final period = swellPeriod;
@@ -473,7 +456,7 @@ class WeatherSnapshot {
         )
       else
         _rateSwellSize(swell),
-      // Sin dato de periodo la comprobación se omite, no se penaliza.
+      // Sin dato de periodo se omite la comprobación en vez de penalizar.
       if (period != null) _rateHigherIsBetter(period, '', _surfPeriodBands),
       _rateLowerIsBetter(windSpeed, '', _surfWindBands),
     ]);
@@ -487,8 +470,8 @@ class WeatherSnapshot {
     _Band(double.negativeInfinity, RatingLevel.veryBad, 'Oleaje muy corto y desordenado'),
   ];
 
-  // Más exigente que la escala de viento del resto de comprobaciones: al surf
-  // le estropea la ola un viento que al agua clara todavía no le afecta.
+  // Más exigente que la escala de viento del resto: un viento que aún no
+  // enturbia el agua ya desordena la ola.
   static const _surfWindBands = [
     _Band(10, RatingLevel.veryGood, 'Viento en calma, favorable para el surf'),
     _Band(15, RatingLevel.good, 'Viento flojo'),
@@ -497,7 +480,7 @@ class WeatherSnapshot {
     _Band(double.infinity, RatingLevel.veryBad, 'Viento fuerte, ola muy desordenada'),
   ];
 
-  /// 4. ¿Hace mucho sol? Nubosidad actual + horas reales de sol hoy.
+  /// ¿Hace sol? Nubosidad del instante y horas de sol reales del día.
   Rating rateSun() {
     return _worstOf([
       if (instantWeatherCode == 45 || instantWeatherCode == 48)
@@ -528,11 +511,10 @@ class WeatherSnapshot {
     _Band(double.negativeInfinity, RatingLevel.veryBad, 'Casi sin horas de sol hoy'),
   ];
 
-  /// 5. ¿Va a llover? Probabilidad y cantidad de lluvia prevista para hoy.
+  /// ¿Va a llover? Probabilidad y cantidad de lluvia previstas.
   Rating rateRain() {
-    // La cantidad prevista, igual que las rachas de [rateWaterClarity], es
-    // una escala parcial: por debajo de 0.5 mm no añade comprobación, y sus
-    // umbrales de score no coinciden con los del nivel.
+    // Escala parcial, como las rachas de [rateWaterClarity]: por debajo de
+    // 0.5 mm no añade comprobación.
     final expectedRain = 'Se esperan ${precipitationTotal.toStringAsFixed(1)} mm de lluvia';
     final rainTotalScore = _lowerIsBetterScore(precipitationTotal, 0.1, 0.5, 3, 10);
 
@@ -558,6 +540,7 @@ class WeatherSnapshot {
     _Band(double.infinity, RatingLevel.veryBad, 'Probabilidad muy alta de lluvia'),
   ];
 
+  /// La peor comprobación; a igualdad de nivel, la de menor score.
   Rating _worstOf(List<Rating> checks) {
     var worst = checks.first;
     for (final check in checks.skip(1)) {
