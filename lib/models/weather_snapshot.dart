@@ -92,6 +92,131 @@ double _higherIsBetterScore(double value, double t1, double t2, double t3, doubl
   return 0.1;
 }
 
+/// Un tramo de una escala de valoración: el nivel cualitativo y el motivo que
+/// se enseñan para los valores que caen dentro de él. En [reason], `{}` se
+/// sustituye por el valor ya formateado (p. ej. "18").
+///
+/// [limit] es el límite superior exclusivo del tramo en las escalas donde
+/// MENOS es mejor, y el inferior inclusivo donde MÁS es mejor. El último
+/// tramo recoge todo lo que queda fuera de los demás, así que su límite es el
+/// infinito que corresponda.
+class _Band {
+  final double limit;
+  final RatingLevel level;
+  final String reason;
+
+  const _Band(this.limit, this.level, this.reason);
+
+  Rating _rating(String formatted, double score) => Rating(
+        level: level,
+        reason: reason.replaceFirst('{}', formatted),
+        score: score,
+      );
+}
+
+/// Valora [value] sobre una escala de cinco tramos donde MENOS es mejor,
+/// ordenados del mejor al peor.
+///
+/// Los cuatro límites de la escala son a la vez los umbrales del nivel
+/// cualitativo y los del score ([_lowerIsBetterScore]): al estar escritos una
+/// sola vez no pueden desalinearse entre sí.
+Rating _rateLowerIsBetter(double value, String formatted, List<_Band> bands) {
+  final score = _lowerIsBetterScore(
+      value, bands[0].limit, bands[1].limit, bands[2].limit, bands[3].limit);
+  return bands.firstWhere((band) => value < band.limit)._rating(formatted, score);
+}
+
+/// Igual que [_rateLowerIsBetter] pero para las escalas donde MÁS es mejor:
+/// los límites son inferiores, inclusivos y van decreciendo.
+Rating _rateHigherIsBetter(double value, String formatted, List<_Band> bands) {
+  final score = _higherIsBetterScore(
+      value, bands[0].limit, bands[1].limit, bands[2].limit, bands[3].limit);
+  return bands.firstWhere((band) => value >= band.limit)._rating(formatted, score);
+}
+
+/// Tramo de la escala de tamaño de ola para surf, la única que no es
+/// monótona: el surf mejora hasta el punto dulce de 1.5 m y empeora a partir
+/// de ahí. Por eso cada tramo lleva su propio recorrido de score en vez de
+/// deducirlo del nivel, como hacen [_lowerIsBetterScore] y su pareja.
+class _SurfBand {
+  /// Límite superior del tramo, inclusivo si [inclusive]. El tramo empieza
+  /// donde acabó el anterior (el primero, en 0 m).
+  final double limit;
+  final bool inclusive;
+  final RatingLevel level;
+  final String reason;
+
+  /// Score en el extremo inferior y en el superior del tramo; dentro se
+  /// interpola linealmente entre ambos.
+  final double scoreAtStart;
+  final double scoreAtLimit;
+
+  const _SurfBand(
+    this.limit,
+    this.level,
+    this.reason, {
+    required this.scoreAtStart,
+    required this.scoreAtLimit,
+    this.inclusive = false,
+  });
+
+  bool contains(double value) => inclusive ? value <= limit : value < limit;
+
+  Rating _ratingAt(double value, double start, String formatted) {
+    final span = limit - start;
+    final progress = span.isFinite ? ((value - start) / span).clamp(0.0, 1.0) : 0.0;
+    return Rating(
+      level: level,
+      reason: reason.replaceFirst('{}', formatted),
+      score: scoreAtStart + (scoreAtLimit - scoreAtStart) * progress,
+    );
+  }
+}
+
+/// Escala de tamaño de ola para surf hasta el temporal de [_hugeSwellBand].
+const _swellSizeBands = [
+  _SurfBand(0.3, RatingLevel.veryBad, 'Prácticamente sin olas ({} m) para surfear',
+      scoreAtStart: 0.0, scoreAtLimit: 0.2),
+  _SurfBand(0.5, RatingLevel.bad, 'Olas muy pequeñas ({} m) para surfear',
+      scoreAtStart: 0.2, scoreAtLimit: 0.4),
+  _SurfBand(0.8, RatingLevel.fair, 'Olas pequeñas ({} m), surf flojo',
+      scoreAtStart: 0.4, scoreAtLimit: 0.6),
+  _SurfBand(1.0, RatingLevel.good, 'Buen tamaño de ola ({} m) para surfear',
+      scoreAtStart: 0.6, scoreAtLimit: 0.8, inclusive: true),
+  // El punto dulce parte en dos el tramo "excelente": el score sube hasta
+  // 1.5 m y vuelve a bajar, pero el nivel es el mismo a los dos lados.
+  _SurfBand(1.5, RatingLevel.veryGood, 'Tamaño de ola excelente ({} m) para surfear',
+      scoreAtStart: 0.8, scoreAtLimit: 1.0, inclusive: true),
+  _SurfBand(2.0, RatingLevel.veryGood, 'Tamaño de ola excelente ({} m) para surfear',
+      scoreAtStart: 1.0, scoreAtLimit: 0.8, inclusive: true),
+  _SurfBand(3.0, RatingLevel.good, 'Olas grandes ({} m), para surfistas expertos',
+      scoreAtStart: 0.8, scoreAtLimit: 0.6, inclusive: true),
+  _SurfBand(4.5, RatingLevel.fair, 'Olas muy grandes y descontroladas ({} m)',
+      scoreAtStart: 0.6, scoreAtLimit: 0.4, inclusive: true),
+  _SurfBand(6.0, RatingLevel.bad, 'Oleaje de fondo enorme ({} m), peligroso',
+      scoreAtStart: 0.4, scoreAtLimit: 0.2, inclusive: true),
+];
+
+/// Por encima de 6 m no se distinguen grados: todo es igual de impracticable.
+const _hugeSwellBand = _SurfBand(
+  double.infinity,
+  RatingLevel.veryBad,
+  'Oleaje de fondo de temporal ({} m), muy peligroso',
+  scoreAtStart: 0.1,
+  scoreAtLimit: 0.1,
+  inclusive: true,
+);
+
+Rating _rateSwellSize(double swell) {
+  final formatted = swell.toStringAsFixed(1);
+  var start = 0.0;
+  for (final band in _swellSizeBands) {
+    if (band.contains(swell)) return band._ratingAt(swell, start, formatted);
+    start = band.limit;
+  }
+  return _hugeSwellBand._ratingAt(swell, start, formatted);
+}
+
 /// Las variables meteorológicas y marinas de un instante concreto. El mismo
 /// objeto describe el "ahora", cada hora de la previsión y cada día: por eso
 /// ningún campo lleva en el nombre el agregado (máximo, media) ni el periodo,
@@ -222,480 +347,216 @@ class WeatherSnapshot {
   /// también enturbia por escorrentía. Esto es una estimación, no una
   /// medición real de turbidez.
   Rating rateWaterClarity() {
+    // Las rachas no usan la tabla de tramos: es una escala parcial (por
+    // debajo de 20 km/h no añaden comprobación) y con los límites al revés
+    // que las demás, y sus umbrales de score no coinciden con los del nivel.
+    final gustScore = _lowerIsBetterScore(windGustSpeed, 10, 20, 30, 45);
+    final localWave = windWaveHeight ?? waveHeight;
+
     final checks = <Rating>[
-      if (windSpeed < 15)
-        Rating(
-          level: RatingLevel.veryGood,
-          reason: 'Viento en calma (${windSpeed.round()} km/h)',
-          score: _lowerIsBetterScore(windSpeed, 15, 20, 30, 40),
-        )
-      else if (windSpeed < 20)
-        Rating(
-          level: RatingLevel.good,
-          reason: 'Viento suave (${windSpeed.round()} km/h)',
-          score: _lowerIsBetterScore(windSpeed, 15, 20, 30, 40),
-        )
-      else if (windSpeed < 30)
-        Rating(
-          level: RatingLevel.fair,
-          reason: 'Viento moderado (${windSpeed.round()} km/h)',
-          score: _lowerIsBetterScore(windSpeed, 15, 20, 30, 40),
-        )
-      else if (windSpeed < 40)
-        Rating(
-          level: RatingLevel.bad,
-          reason: 'Viento fuerte (${windSpeed.round()} km/h) remueve el fondo',
-          score: _lowerIsBetterScore(windSpeed, 15, 20, 30, 40),
-        )
-      else
-        Rating(
-          level: RatingLevel.veryBad,
-          reason: 'Viento muy fuerte (${windSpeed.round()} km/h)',
-          score: _lowerIsBetterScore(windSpeed, 15, 20, 30, 40),
-        ),
+      _rateLowerIsBetter(windSpeed, '${windSpeed.round()}', _clarityWindBands),
       if (windGustSpeed >= 45)
         Rating(
           level: RatingLevel.veryBad,
           reason: 'Rachas muy fuertes remueven el fondo',
-          score: _lowerIsBetterScore(windGustSpeed, 10, 20, 30, 45),
+          score: gustScore,
         )
       else if (windGustSpeed > 30)
         Rating(
           level: RatingLevel.bad,
           reason: 'Rachas fuertes pueden remover el fondo',
-          score: _lowerIsBetterScore(windGustSpeed, 10, 20, 30, 45),
+          score: gustScore,
         )
       else if (windGustSpeed > 20)
         Rating(
           level: RatingLevel.fair,
           reason: 'Rachas moderadas pueden levantar sedimento',
-          score: _lowerIsBetterScore(windGustSpeed, 10, 20, 30, 45),
+          score: gustScore,
         ),
-      if (precipitationPast48h < 1)
-        Rating(
-          level: RatingLevel.veryGood,
-          reason: 'Sin lluvia reciente',
-          score: _lowerIsBetterScore(precipitationPast48h, 1, 2, 10, 20),
-        )
-      else if (precipitationPast48h < 2)
-        Rating(
-          level: RatingLevel.good,
-          reason: 'Muy poca lluvia reciente',
-          score: _lowerIsBetterScore(precipitationPast48h, 1, 2, 10, 20),
-        )
-      else if (precipitationPast48h < 10)
-        Rating(
+      _rateLowerIsBetter(precipitationPast48h, '', _clarityRecentRainBands),
+      if (localWave == null)
+        const Rating(
           level: RatingLevel.fair,
-          reason: 'Algo de lluvia reciente, puede haber turbidez',
-          score: _lowerIsBetterScore(precipitationPast48h, 1, 2, 10, 20),
-        )
-      else if (precipitationPast48h < 20)
-        Rating(
-          level: RatingLevel.bad,
-          reason: 'Lluvia reciente ha podido enturbiar el agua',
-          score: _lowerIsBetterScore(precipitationPast48h, 1, 2, 10, 20),
+          reason: 'Sin datos de oleaje, no se puede asegurar la visibilidad',
+          score: 0.5,
         )
       else
-        Rating(
-          level: RatingLevel.veryBad,
-          reason: 'Lluvia reciente abundante, agua probablemente turbia',
-          score: _lowerIsBetterScore(precipitationPast48h, 1, 2, 10, 20),
-        ),
+        _rateLowerIsBetter(localWave, localWave.toStringAsFixed(1), _clarityWaveBands),
     ];
-
-    final localWave = windWaveHeight ?? waveHeight;
-    if (localWave == null) {
-      checks.add(const Rating(
-        level: RatingLevel.fair,
-        reason: 'Sin datos de oleaje, no se puede asegurar la visibilidad',
-        score: 0.5,
-      ));
-    } else if (localWave < 0.3) {
-      checks.add(Rating(
-        level: RatingLevel.veryGood,
-        reason: 'Mar en calma (${localWave.toStringAsFixed(1)} m), alta confianza en buena visibilidad',
-        score: _lowerIsBetterScore(localWave, 0.3, 0.5, 0.8, 1.2),
-      ));
-    } else if (localWave < 0.5) {
-      checks.add(Rating(
-        level: RatingLevel.good,
-        reason: 'Oleaje suave (${localWave.toStringAsFixed(1)} m), visibilidad probablemente buena',
-        score: _lowerIsBetterScore(localWave, 0.3, 0.5, 0.8, 1.2),
-      ));
-    } else if (localWave < 0.8) {
-      checks.add(Rating(
-        level: RatingLevel.fair,
-        reason: 'Algo de oleaje (${localWave.toStringAsFixed(1)} m), visibilidad no garantizada',
-        score: _lowerIsBetterScore(localWave, 0.3, 0.5, 0.8, 1.2),
-      ));
-    } else if (localWave < 1.2) {
-      checks.add(Rating(
-        level: RatingLevel.bad,
-        reason: 'Oleaje remueve el fondo (${localWave.toStringAsFixed(1)} m), poca visibilidad',
-        score: _lowerIsBetterScore(localWave, 0.3, 0.5, 0.8, 1.2),
-      ));
-    } else {
-      checks.add(Rating(
-        level: RatingLevel.veryBad,
-        reason: 'Oleaje fuerte (${localWave.toStringAsFixed(1)} m), agua probablemente muy turbia',
-        score: _lowerIsBetterScore(localWave, 0.3, 0.5, 0.8, 1.2),
-      ));
-    }
 
     return _worstOf(checks);
   }
+
+  static const _clarityWindBands = [
+    _Band(15, RatingLevel.veryGood, 'Viento en calma ({} km/h)'),
+    _Band(20, RatingLevel.good, 'Viento suave ({} km/h)'),
+    _Band(30, RatingLevel.fair, 'Viento moderado ({} km/h)'),
+    _Band(40, RatingLevel.bad, 'Viento fuerte ({} km/h) remueve el fondo'),
+    _Band(double.infinity, RatingLevel.veryBad, 'Viento muy fuerte ({} km/h)'),
+  ];
+
+  static const _clarityRecentRainBands = [
+    _Band(1, RatingLevel.veryGood, 'Sin lluvia reciente'),
+    _Band(2, RatingLevel.good, 'Muy poca lluvia reciente'),
+    _Band(10, RatingLevel.fair, 'Algo de lluvia reciente, puede haber turbidez'),
+    _Band(20, RatingLevel.bad, 'Lluvia reciente ha podido enturbiar el agua'),
+    _Band(double.infinity, RatingLevel.veryBad,
+        'Lluvia reciente abundante, agua probablemente turbia'),
+  ];
+
+  static const _clarityWaveBands = [
+    _Band(0.3, RatingLevel.veryGood,
+        'Mar en calma ({} m), alta confianza en buena visibilidad'),
+    _Band(0.5, RatingLevel.good, 'Oleaje suave ({} m), visibilidad probablemente buena'),
+    _Band(0.8, RatingLevel.fair, 'Algo de oleaje ({} m), visibilidad no garantizada'),
+    _Band(1.2, RatingLevel.bad, 'Oleaje remueve el fondo ({} m), poca visibilidad'),
+    _Band(double.infinity, RatingLevel.veryBad,
+        'Oleaje fuerte ({} m), agua probablemente muy turbia'),
+  ];
 
   /// 2. ¿Va a haber playa removida (arena revuelta, escalones)? Viento y
   /// oleaje sostenidos durante los últimos días, no solo ahora mismo.
   Rating rateShoreDisturbance() {
-    final checks = <Rating>[
-      if (averageWindSpeedPast48h < 15)
-        Rating(
-          level: RatingLevel.veryGood,
-          reason: 'Viento en calma los últimos días (${averageWindSpeedPast48h.round()} km/h)',
-          score: _lowerIsBetterScore(averageWindSpeedPast48h, 15, 20, 30, 40),
-        )
-      else if (averageWindSpeedPast48h < 20)
-        Rating(
-          level: RatingLevel.good,
-          reason: 'Viento suave los últimos días (${averageWindSpeedPast48h.round()} km/h)',
-          score: _lowerIsBetterScore(averageWindSpeedPast48h, 15, 20, 30, 40),
-        )
-      else if (averageWindSpeedPast48h < 30)
-        Rating(
+    final recentWave = rmsWaveHeightPast48h;
+
+    return _worstOf([
+      _rateLowerIsBetter(averageWindSpeedPast48h, '${averageWindSpeedPast48h.round()}',
+          _shoreWindBands),
+      if (recentWave == null)
+        const Rating(
           level: RatingLevel.fair,
-          reason: 'Viento sostenido moderado (${averageWindSpeedPast48h.round()} km/h)',
-          score: _lowerIsBetterScore(averageWindSpeedPast48h, 15, 20, 30, 40),
-        )
-      else if (averageWindSpeedPast48h < 40)
-        Rating(
-          level: RatingLevel.bad,
-          reason: 'Viento fuerte varios días seguidos (${averageWindSpeedPast48h.round()} km/h)',
-          score: _lowerIsBetterScore(averageWindSpeedPast48h, 15, 20, 30, 40),
+          reason: 'Sin datos de oleaje de días recientes',
+          score: 0.5,
         )
       else
-        Rating(
-          level: RatingLevel.veryBad,
-          reason: 'Viento muy fuerte varios días seguidos (${averageWindSpeedPast48h.round()} km/h)',
-          score: _lowerIsBetterScore(averageWindSpeedPast48h, 15, 20, 30, 40),
-        ),
-    ];
-
-    // Umbrales más bajos que los del oleaje instantáneo porque este valor es
-    // una media cuadrática de 48 h, no un pico: un mar que llega a 1.2 m de
-    // media cuadrática durante dos días ha estado rompiendo mucho más fuerte
-    // en sus peores horas. Son una primera estimación, pendiente de
-    // contrastar con playas reales.
-    final recentWave = rmsWaveHeightPast48h;
-    if (recentWave == null) {
-      checks.add(const Rating(
-        level: RatingLevel.fair,
-        reason: 'Sin datos de oleaje de días recientes',
-        score: 0.5,
-      ));
-    } else if (recentWave < 0.3) {
-      checks.add(Rating(
-        level: RatingLevel.veryGood,
-        reason: 'Oleaje en calma en días recientes (${recentWave.toStringAsFixed(1)} m)',
-        score: _lowerIsBetterScore(recentWave, 0.3, 0.5, 0.8, 1.2),
-      ));
-    } else if (recentWave < 0.5) {
-      checks.add(Rating(
-        level: RatingLevel.good,
-        reason: 'Oleaje suave en días recientes (${recentWave.toStringAsFixed(1)} m)',
-        score: _lowerIsBetterScore(recentWave, 0.3, 0.5, 0.8, 1.2),
-      ));
-    } else if (recentWave < 0.8) {
-      checks.add(Rating(
-        level: RatingLevel.fair,
-        reason: 'Oleaje moderado en días recientes (${recentWave.toStringAsFixed(1)} m)',
-        score: _lowerIsBetterScore(recentWave, 0.3, 0.5, 0.8, 1.2),
-      ));
-    } else if (recentWave < 1.2) {
-      checks.add(Rating(
-        level: RatingLevel.bad,
-        reason: 'Oleaje fuerte en días recientes (${recentWave.toStringAsFixed(1)} m), puede haber escalones',
-        score: _lowerIsBetterScore(recentWave, 0.3, 0.5, 0.8, 1.2),
-      ));
-    } else {
-      checks.add(Rating(
-        level: RatingLevel.veryBad,
-        reason: 'Oleaje muy fuerte en días recientes (${recentWave.toStringAsFixed(1)} m)',
-        score: _lowerIsBetterScore(recentWave, 0.3, 0.5, 0.8, 1.2),
-      ));
-    }
-
-    return _worstOf(checks);
+        _rateLowerIsBetter(recentWave, recentWave.toStringAsFixed(1), _shoreWaveBands),
+    ]);
   }
+
+  static const _shoreWindBands = [
+    _Band(15, RatingLevel.veryGood, 'Viento en calma los últimos días ({} km/h)'),
+    _Band(20, RatingLevel.good, 'Viento suave los últimos días ({} km/h)'),
+    _Band(30, RatingLevel.fair, 'Viento sostenido moderado ({} km/h)'),
+    _Band(40, RatingLevel.bad, 'Viento fuerte varios días seguidos ({} km/h)'),
+    _Band(double.infinity, RatingLevel.veryBad,
+        'Viento muy fuerte varios días seguidos ({} km/h)'),
+  ];
+
+  // Umbrales más bajos que los del oleaje instantáneo porque este valor es
+  // una media cuadrática de 48 h, no un pico: un mar que llega a 1.2 m de
+  // media cuadrática durante dos días ha estado rompiendo mucho más fuerte
+  // en sus peores horas. Son una primera estimación, pendiente de
+  // contrastar con playas reales.
+  static const _shoreWaveBands = [
+    _Band(0.3, RatingLevel.veryGood, 'Oleaje en calma en días recientes ({} m)'),
+    _Band(0.5, RatingLevel.good, 'Oleaje suave en días recientes ({} m)'),
+    _Band(0.8, RatingLevel.fair, 'Oleaje moderado en días recientes ({} m)'),
+    _Band(1.2, RatingLevel.bad,
+        'Oleaje fuerte en días recientes ({} m), puede haber escalones'),
+    _Band(double.infinity, RatingLevel.veryBad,
+        'Oleaje muy fuerte en días recientes ({} m)'),
+  ];
 
   /// 3. ¿Se puede hacer surf? Tamaño y periodo del oleaje de fondo (swell);
   /// sin conocer la orientación de la playa no se evalúa offshore/onshore,
   /// solo se penaliza el viento fuerte en general.
   Rating rateSurf() {
-    final checks = <Rating>[];
-
     final swell = swellHeight;
-    if (swell == null) {
-      checks.add(const Rating(
-        level: RatingLevel.fair,
-        reason: 'Sin datos de oleaje de fondo para valorar el surf',
-        score: 0.5,
-      ));
-    } else if (swell < 0.3) {
-      checks.add(Rating(
-        level: RatingLevel.veryBad,
-        reason: 'Prácticamente sin olas (${swell.toStringAsFixed(1)} m) para surfear',
-        score: 0.2 * (swell / 0.3).clamp(0.0, 1.0),
-      ));
-    } else if (swell < 0.5) {
-      checks.add(Rating(
-        level: RatingLevel.bad,
-        reason: 'Olas muy pequeñas (${swell.toStringAsFixed(1)} m) para surfear',
-        score: 0.2 + 0.2 * ((swell - 0.3) / (0.5 - 0.3)),
-      ));
-    } else if (swell < 0.8) {
-      checks.add(Rating(
-        level: RatingLevel.fair,
-        reason: 'Olas pequeñas (${swell.toStringAsFixed(1)} m), surf flojo',
-        score: 0.4 + 0.2 * ((swell - 0.5) / (0.8 - 0.5)),
-      ));
-    } else if (swell <= 1.0) {
-      checks.add(Rating(
-        level: RatingLevel.good,
-        reason: 'Buen tamaño de ola (${swell.toStringAsFixed(1)} m) para surfear',
-        score: 0.6 + 0.2 * ((swell - 0.8) / (1.0 - 0.8)),
-      ));
-    } else if (swell <= 2.0) {
-      checks.add(Rating(
-        level: RatingLevel.veryGood,
-        reason: 'Tamaño de ola excelente (${swell.toStringAsFixed(1)} m) para surfear',
-        score: 0.8 + 0.2 * (1 - ((swell - 1.0) / (2.0 - 1.0) - 0.5).abs() * 2).clamp(0.0, 1.0),
-      ));
-    } else if (swell <= 3.0) {
-      checks.add(Rating(
-        level: RatingLevel.good,
-        reason: 'Olas grandes (${swell.toStringAsFixed(1)} m), para surfistas expertos',
-        score: 0.6 + 0.2 * (1 - (swell - 2.0) / (3.0 - 2.0)),
-      ));
-    } else if (swell <= 4.5) {
-      checks.add(Rating(
-        level: RatingLevel.fair,
-        reason: 'Olas muy grandes y descontroladas (${swell.toStringAsFixed(1)} m)',
-        score: 0.4 + 0.2 * (1 - (swell - 3.0) / (4.5 - 3.0)),
-      ));
-    } else if (swell <= 6.0) {
-      checks.add(Rating(
-        level: RatingLevel.bad,
-        reason: 'Oleaje de fondo enorme (${swell.toStringAsFixed(1)} m), peligroso',
-        score: 0.2 + 0.2 * (1 - (swell - 4.5) / (6.0 - 4.5)),
-      ));
-    } else {
-      checks.add(Rating(
-        level: RatingLevel.veryBad,
-        reason: 'Oleaje de fondo de temporal (${swell.toStringAsFixed(1)} m), muy peligroso',
-        score: 0.1,
-      ));
-    }
-
     final period = swellPeriod;
-    if (period != null) {
-      if (period < 6) {
-        checks.add(Rating(
-          level: RatingLevel.veryBad,
-          reason: 'Oleaje muy corto y desordenado',
-          score: _higherIsBetterScore(period, 12, 10, 8, 6),
-        ));
-      } else if (period < 8) {
-        checks.add(Rating(
-          level: RatingLevel.bad,
-          reason: 'Oleaje corto, bastante desordenado',
-          score: _higherIsBetterScore(period, 12, 10, 8, 6),
-        ));
-      } else if (period < 10) {
-        checks.add(Rating(
+
+    return _worstOf([
+      if (swell == null)
+        const Rating(
           level: RatingLevel.fair,
-          reason: 'Swell de calidad media',
-          score: _higherIsBetterScore(period, 12, 10, 8, 6),
-        ));
-      } else if (period < 12) {
-        checks.add(Rating(
-          level: RatingLevel.good,
-          reason: 'Buen periodo de swell',
-          score: _higherIsBetterScore(period, 12, 10, 8, 6),
-        ));
-      } else {
-        checks.add(Rating(
-          level: RatingLevel.veryGood,
-          reason: 'Swell largo y limpio',
-          score: _higherIsBetterScore(period, 12, 10, 8, 6),
-        ));
-      }
-    }
-
-    if (windSpeed < 10) {
-      checks.add(Rating(
-        level: RatingLevel.veryGood,
-        reason: 'Viento en calma, favorable para el surf',
-        score: _lowerIsBetterScore(windSpeed, 10, 15, 20, 25),
-      ));
-    } else if (windSpeed < 15) {
-      checks.add(Rating(
-        level: RatingLevel.good,
-        reason: 'Viento flojo',
-        score: _lowerIsBetterScore(windSpeed, 10, 15, 20, 25),
-      ));
-    } else if (windSpeed < 20) {
-      checks.add(Rating(
-        level: RatingLevel.fair,
-        reason: 'Algo de viento, puede afectar a la calidad',
-        score: _lowerIsBetterScore(windSpeed, 10, 15, 20, 25),
-      ));
-    } else if (windSpeed < 25) {
-      checks.add(Rating(
-        level: RatingLevel.bad,
-        reason: 'Viento moderado-fuerte, probablemente desordene la ola',
-        score: _lowerIsBetterScore(windSpeed, 10, 15, 20, 25),
-      ));
-    } else {
-      checks.add(Rating(
-        level: RatingLevel.veryBad,
-        reason: 'Viento fuerte, ola muy desordenada',
-        score: _lowerIsBetterScore(windSpeed, 10, 15, 20, 25),
-      ));
-    }
-
-    return _worstOf(checks);
+          reason: 'Sin datos de oleaje de fondo para valorar el surf',
+          score: 0.5,
+        )
+      else
+        _rateSwellSize(swell),
+      // Sin dato de periodo la comprobación se omite, no se penaliza.
+      if (period != null) _rateHigherIsBetter(period, '', _surfPeriodBands),
+      _rateLowerIsBetter(windSpeed, '', _surfWindBands),
+    ]);
   }
+
+  static const _surfPeriodBands = [
+    _Band(12, RatingLevel.veryGood, 'Swell largo y limpio'),
+    _Band(10, RatingLevel.good, 'Buen periodo de swell'),
+    _Band(8, RatingLevel.fair, 'Swell de calidad media'),
+    _Band(6, RatingLevel.bad, 'Oleaje corto, bastante desordenado'),
+    _Band(double.negativeInfinity, RatingLevel.veryBad, 'Oleaje muy corto y desordenado'),
+  ];
+
+  // Más exigente que la escala de viento del resto de comprobaciones: al surf
+  // le estropea la ola un viento que al agua clara todavía no le afecta.
+  static const _surfWindBands = [
+    _Band(10, RatingLevel.veryGood, 'Viento en calma, favorable para el surf'),
+    _Band(15, RatingLevel.good, 'Viento flojo'),
+    _Band(20, RatingLevel.fair, 'Algo de viento, puede afectar a la calidad'),
+    _Band(25, RatingLevel.bad, 'Viento moderado-fuerte, probablemente desordene la ola'),
+    _Band(double.infinity, RatingLevel.veryBad, 'Viento fuerte, ola muy desordenada'),
+  ];
 
   /// 4. ¿Hace mucho sol? Nubosidad actual + horas reales de sol hoy.
   Rating rateSun() {
-    final checks = <Rating>[
+    return _worstOf([
       if (instantWeatherCode == 45 || instantWeatherCode == 48)
         const Rating(level: RatingLevel.veryBad, reason: 'Niebla ahora mismo', score: 0.05),
-      if (cloudCover < 15)
-        Rating(
-          level: RatingLevel.veryGood,
-          reason: 'Cielo despejado, mucho sol',
-          score: _lowerIsBetterScore(cloudCover, 15, 35, 65, 90),
-        )
-      else if (cloudCover < 35)
-        Rating(
-          level: RatingLevel.good,
-          reason: 'Cielo mayormente despejado (${cloudCover.round()}% nubes)',
-          score: _lowerIsBetterScore(cloudCover, 15, 35, 65, 90),
-        )
-      else if (cloudCover < 65)
-        Rating(
-          level: RatingLevel.fair,
-          reason: 'Parcialmente nublado (${cloudCover.round()}% nubes)',
-          score: _lowerIsBetterScore(cloudCover, 15, 35, 65, 90),
-        )
-      else if (cloudCover < 90)
-        Rating(
-          level: RatingLevel.bad,
-          reason: 'Muy nublado (${cloudCover.round()}% nubes), poco sol',
-          score: _lowerIsBetterScore(cloudCover, 15, 35, 65, 90),
-        )
-      else
-        Rating(
-          level: RatingLevel.veryBad,
-          reason: 'Cielo cubierto, prácticamente sin sol',
-          score: _lowerIsBetterScore(cloudCover, 15, 35, 65, 90),
-        ),
-      if (sunshineHours >= 10)
-        Rating(
-          level: RatingLevel.veryGood,
-          reason: 'Muchísimas horas de sol hoy',
-          score: _higherIsBetterScore(sunshineHours, 10, 8, 5, 2),
-        )
-      else if (sunshineHours >= 8)
-        Rating(
-          level: RatingLevel.good,
-          reason: 'Muchas horas de sol hoy',
-          score: _higherIsBetterScore(sunshineHours, 10, 8, 5, 2),
-        )
-      else if (sunshineHours >= 5)
-        Rating(
-          level: RatingLevel.fair,
-          reason: 'Sol intermitente hoy',
-          score: _higherIsBetterScore(sunshineHours, 10, 8, 5, 2),
-        )
-      else if (sunshineHours >= 2)
-        Rating(
-          level: RatingLevel.bad,
-          reason: 'Pocas horas de sol reales hoy',
-          score: _higherIsBetterScore(sunshineHours, 10, 8, 5, 2),
-        )
-      else
-        Rating(
-          level: RatingLevel.veryBad,
-          reason: 'Casi sin horas de sol hoy',
-          score: _higherIsBetterScore(sunshineHours, 10, 8, 5, 2),
-        ),
+      _rateLowerIsBetter(cloudCover, '${cloudCover.round()}', _sunCloudBands),
+      _rateHigherIsBetter(sunshineHours, '', _sunshineBands),
       if (uvIndex > 8)
-        const Rating(level: RatingLevel.fair, reason: 'Índice UV muy alto, usa protección solar', score: 0.5),
-    ];
-
-    return _worstOf(checks);
+        const Rating(
+            level: RatingLevel.fair,
+            reason: 'Índice UV muy alto, usa protección solar',
+            score: 0.5),
+    ]);
   }
+
+  static const _sunCloudBands = [
+    _Band(15, RatingLevel.veryGood, 'Cielo despejado, mucho sol'),
+    _Band(35, RatingLevel.good, 'Cielo mayormente despejado ({}% nubes)'),
+    _Band(65, RatingLevel.fair, 'Parcialmente nublado ({}% nubes)'),
+    _Band(90, RatingLevel.bad, 'Muy nublado ({}% nubes), poco sol'),
+    _Band(double.infinity, RatingLevel.veryBad, 'Cielo cubierto, prácticamente sin sol'),
+  ];
+
+  static const _sunshineBands = [
+    _Band(10, RatingLevel.veryGood, 'Muchísimas horas de sol hoy'),
+    _Band(8, RatingLevel.good, 'Muchas horas de sol hoy'),
+    _Band(5, RatingLevel.fair, 'Sol intermitente hoy'),
+    _Band(2, RatingLevel.bad, 'Pocas horas de sol reales hoy'),
+    _Band(double.negativeInfinity, RatingLevel.veryBad, 'Casi sin horas de sol hoy'),
+  ];
 
   /// 5. ¿Va a llover? Probabilidad y cantidad de lluvia prevista para hoy.
   Rating rateRain() {
-    final checks = <Rating>[
+    // La cantidad prevista, igual que las rachas de [rateWaterClarity], es
+    // una escala parcial: por debajo de 0.5 mm no añade comprobación, y sus
+    // umbrales de score no coinciden con los del nivel.
+    final expectedRain = 'Se esperan ${precipitationTotal.toStringAsFixed(1)} mm de lluvia';
+    final rainTotalScore = _lowerIsBetterScore(precipitationTotal, 0.1, 0.5, 3, 10);
+
+    return _worstOf([
       if (periodWeatherCode >= 95)
         const Rating(level: RatingLevel.veryBad, reason: 'Tormenta prevista', score: 0.05),
-      if (precipitationProbability < 10)
-        Rating(
-          level: RatingLevel.veryGood,
-          reason: 'Sin lluvia prevista',
-          score: _lowerIsBetterScore(precipitationProbability, 10, 20, 50, 75),
-        )
-      else if (precipitationProbability < 20)
-        Rating(
-          level: RatingLevel.good,
-          reason: 'Muy baja probabilidad de lluvia (${precipitationProbability.round()}%)',
-          score: _lowerIsBetterScore(precipitationProbability, 10, 20, 50, 75),
-        )
-      else if (precipitationProbability < 50)
-        Rating(
-          level: RatingLevel.fair,
-          reason: 'Posibilidad de algún chubasco',
-          score: _lowerIsBetterScore(precipitationProbability, 10, 20, 50, 75),
-        )
-      else if (precipitationProbability < 75)
-        Rating(
-          level: RatingLevel.bad,
-          reason: 'Alta probabilidad de lluvia',
-          score: _lowerIsBetterScore(precipitationProbability, 10, 20, 50, 75),
-        )
-      else
-        Rating(
-          level: RatingLevel.veryBad,
-          reason: 'Probabilidad muy alta de lluvia',
-          score: _lowerIsBetterScore(precipitationProbability, 10, 20, 50, 75),
-        ),
+      _rateLowerIsBetter(
+          precipitationProbability, '${precipitationProbability.round()}', _rainChanceBands),
       if (precipitationTotal >= 10)
-        Rating(
-          level: RatingLevel.veryBad,
-          reason: 'Se esperan ${precipitationTotal.toStringAsFixed(1)} mm de lluvia',
-          score: _lowerIsBetterScore(precipitationTotal, 0.1, 0.5, 3, 10),
-        )
+        Rating(level: RatingLevel.veryBad, reason: expectedRain, score: rainTotalScore)
       else if (precipitationTotal > 3)
-        Rating(
-          level: RatingLevel.bad,
-          reason: 'Se esperan ${precipitationTotal.toStringAsFixed(1)} mm de lluvia',
-          score: _lowerIsBetterScore(precipitationTotal, 0.1, 0.5, 3, 10),
-        )
+        Rating(level: RatingLevel.bad, reason: expectedRain, score: rainTotalScore)
       else if (precipitationTotal > 0.5)
-        Rating(
-          level: RatingLevel.fair,
-          reason: 'Se esperan ${precipitationTotal.toStringAsFixed(1)} mm de lluvia',
-          score: _lowerIsBetterScore(precipitationTotal, 0.1, 0.5, 3, 10),
-        ),
-    ];
-
-    return _worstOf(checks);
+        Rating(level: RatingLevel.fair, reason: expectedRain, score: rainTotalScore),
+    ]);
   }
+
+  static const _rainChanceBands = [
+    _Band(10, RatingLevel.veryGood, 'Sin lluvia prevista'),
+    _Band(20, RatingLevel.good, 'Muy baja probabilidad de lluvia ({}%)'),
+    _Band(50, RatingLevel.fair, 'Posibilidad de algún chubasco'),
+    _Band(75, RatingLevel.bad, 'Alta probabilidad de lluvia'),
+    _Band(double.infinity, RatingLevel.veryBad, 'Probabilidad muy alta de lluvia'),
+  ];
 
   Rating _worstOf(List<Rating> checks) {
     var worst = checks.first;
