@@ -28,19 +28,6 @@ double? trailingAverage(List<num?> values, int index, int windowSize) {
   return sum / count;
 }
 
-/// Máximo de las entradas con dato de las últimas [windowSize] terminando en
-/// [index] (inclusive). Devuelve null si la ventana entera está vacía.
-double? trailingMax(List<num?> values, int index, int windowSize) {
-  final start = (index - windowSize + 1).clamp(0, index);
-  num? max;
-  for (var i = start; i <= index && i < values.length; i++) {
-    final v = values[i];
-    if (v == null) continue;
-    if (max == null || v > max) max = v;
-  }
-  return max?.toDouble();
-}
-
 /// Media cuadrática (raíz de la media de los cuadrados) de las últimas
 /// [windowSize] entradas terminando en [index], esa incluida.
 ///

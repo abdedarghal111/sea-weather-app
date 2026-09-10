@@ -60,18 +60,4 @@ void main() {
       expect(trailingRms([3, 4], 1, 10), closeTo(3.5355, 0.0001)); // sqrt((9+16)/2)
     });
   });
-
-  group('trailingMax', () {
-    test('finds the max within the window', () {
-      expect(trailingMax([1, 5, 2, 8, 3], 4, 3), 8); // max(2,8,3)
-    });
-
-    test('clamps to available history at the start of the array', () {
-      expect(trailingMax([4, 9], 1, 10), 9);
-    });
-
-    test('a single-entry window returns that entry', () {
-      expect(trailingMax([1, 5, 2], 0, 1), 1);
-    });
-  });
 }
