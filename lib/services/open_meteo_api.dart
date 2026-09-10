@@ -110,9 +110,11 @@ class OpenMeteoApi {
     final marineUri = Uri.parse(
       'https://marine-api.open-meteo.com/v1/marine'
       '?latitude=${spot.latitude}&longitude=${spot.longitude}'
-      '&current=wave_height,wind_wave_height,swell_wave_height,swell_wave_period,sea_surface_temperature'
-      '&hourly=wave_height,wind_wave_height,swell_wave_height,swell_wave_period,sea_surface_temperature'
-      '&daily=wave_height_max'
+      '&current=wave_height,wave_direction,wind_wave_height,swell_wave_height,'
+      'swell_wave_period,sea_surface_temperature'
+      '&hourly=wave_height,wave_direction,wind_wave_height,swell_wave_height,'
+      'swell_wave_period,sea_surface_temperature'
+      '&daily=wave_height_max,wave_direction_dominant'
       '&timezone=auto&forecast_days=$_marineForecastDays&past_days=$_pastDays',
     );
 
@@ -159,6 +161,8 @@ class OpenMeteoApi {
     final dailySunset = _stringList(daily['sunset']);
     final dailyWindDirection = _numList(daily['wind_direction_10m_dominant']);
     final dailyWaveMax = marineDaily == null ? null : _numList(marineDaily['wave_height_max']);
+    final dailyWaveDirection =
+        marineDaily == null ? null : _numList(marineDaily['wave_direction_dominant']);
 
     final hourlyTime = _stringList(hourly['time']);
     final hourlyTemp = _numList(hourly['temperature_2m']);
@@ -172,6 +176,8 @@ class OpenMeteoApi {
     final hourlyWindDirection = _numList(hourly['wind_direction_10m']);
     final hourlyUv = _numList(hourly['uv_index']);
     final hourlyWave = marineHourly == null ? null : _numList(marineHourly['wave_height']);
+    final hourlyWaveDirection =
+        marineHourly == null ? null : _numList(marineHourly['wave_direction']);
     final hourlyWindWave = marineHourly == null ? null : _numList(marineHourly['wind_wave_height']);
     final hourlySwellHeight = marineHourly == null ? null : _numList(marineHourly['swell_wave_height']);
     final hourlySwellPeriod = marineHourly == null ? null : _numList(marineHourly['swell_wave_period']);
@@ -276,6 +282,7 @@ class OpenMeteoApi {
       DateTime? sunrise,
       DateTime? sunset,
       double? windDirection10m,
+      double? waveDirection,
       required DateTime fetchedAt,
     }) =>
         BeachConditions(
@@ -301,6 +308,7 @@ class OpenMeteoApi {
           sunrise: sunrise,
           sunset: sunset,
           windDirection10m: windDirection10m,
+          waveDirection: waveDirection,
           fetchedAt: fetchedAt,
         );
 
@@ -348,6 +356,7 @@ class OpenMeteoApi {
       swellWavePeriod: (marineCurrent?['swell_wave_period'] as num?)?.toDouble(),
       seaSurfaceTemperature: (marineCurrent?['sea_surface_temperature'] as num?)?.toDouble(),
       waveHeightMaxRecent48h: recentMarineDailyAverage(todayIndex),
+      waveDirection: (marineCurrent?['wave_direction'] as num?)?.toDouble(),
       sunrise: parseTime(dayStr(dailySunrise, todayIndex)),
       sunset: parseTime(dayStr(dailySunset, todayIndex)),
       fetchedAt: DateTime.now(),
@@ -415,6 +424,7 @@ class OpenMeteoApi {
           sunrise: parseTime(dayStr(dailySunrise, i ~/ 24)),
           sunset: parseTime(dayStr(dailySunset, i ~/ 24)),
           windDirection10m: dayNum(hourlyWindDirection, i)?.toDouble(),
+          waveDirection: marineAt(hourlyWaveDirection, i)?.toDouble(),
           fetchedAt: time,
         ),
       ));
@@ -475,6 +485,7 @@ class OpenMeteoApi {
           sunrise: parseTime(dayStr(dailySunrise, d)),
           sunset: parseTime(dayStr(dailySunset, d)),
           windDirection10m: dayNum(dailyWindDirection, d)?.toDouble(),
+          waveDirection: marineAt(dailyWaveDirection, d)?.toDouble(),
           fetchedAt: time,
         ),
       ));

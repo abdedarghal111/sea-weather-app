@@ -11,6 +11,7 @@ import '../widgets/condition_tile.dart';
 import '../widgets/rating_gauge.dart';
 import '../widgets/rating_time_series_chart.dart';
 import '../widgets/raw_parameter_time_series_chart.dart';
+import '../widgets/wave_direction_chart.dart';
 import '../widgets/wind_direction_chart.dart';
 
 class _RawParamSpec {
@@ -224,7 +225,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
   /// vacía: 5 gráficas de valoración + 1 de dirección de viento + 1 por cada
   /// [_RawParamSpec] de [_rawParams].
   int _seriesItemCount(List<ConditionPoint> points) =>
-      points.isEmpty ? 1 : 6 + _rawParams.length;
+      points.isEmpty ? 1 : 7 + _rawParams.length;
 
   /// Construye bajo demanda la tarjeta `index` de una sección de serie
   /// temporal (a partir de [points]/[times] ya calculados una única vez por
@@ -296,8 +297,15 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
           labelBuilder: labelBuilder,
           highlightX: highlightX,
         );
+      case 6:
+        return WaveDirectionChart(
+          times: times,
+          directions: points.map((p) => p.conditions.waveDirection).toList(),
+          labelBuilder: labelBuilder,
+          highlightX: highlightX,
+        );
       default:
-        final spec = _rawParams[index - 6];
+        final spec = _rawParams[index - 7];
         return RawParameterTimeSeriesChart(
           title: spec.title,
           unit: spec.unit,
