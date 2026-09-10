@@ -12,6 +12,16 @@ extension RatingLevelLabel on RatingLevel {
       };
 }
 
+extension WaterClarityTitle on RatingLevel {
+  String get waterClarityTitle => switch (this) {
+        RatingLevel.veryGood => 'Agua cristalina',
+        RatingLevel.good => 'Agua clara',
+        RatingLevel.ok => 'Agua algo opaca',
+        RatingLevel.bad => 'Agua opaca',
+        RatingLevel.veryBad => 'Agua muy opaca',
+      };
+}
+
 extension PlayaRemovidaTitle on RatingLevel {
   String get playaRemovidaTitle => switch (this) {
         RatingLevel.veryGood => 'Playa muy tranquila',
@@ -30,6 +40,7 @@ extension PlayaRemovidaTitle on RatingLevel {
       };
 }
 
+const waterClaritySeriesTitle = 'Agua clara u opaca';
 const playaRemovidaSeriesTitle = 'Playa tranquila o removida';
 
 class BeachRating {

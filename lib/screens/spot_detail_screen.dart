@@ -245,7 +245,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     switch (index) {
       case 0:
         return RatingTimeSeriesChart(
-          title: 'Agua cristalina',
+          title: waterClaritySeriesTitle,
           times: times,
           scores: points
               .map((p) => p.conditions.rateWaterClarity().score)
@@ -420,6 +420,9 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     );
   }
 
+  Widget _waterClarityGauge(BeachRating rating) =>
+      RatingGauge(title: rating.level.waterClarityTitle, rating: rating);
+
   Widget _playaRemovidaGauge(BeachRating rating) =>
       RatingGauge(title: rating.level.playaRemovidaTitle, rating: rating);
 
@@ -430,8 +433,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
         Text(_minutesAgoLabel(conditions.fetchedAt),
             style: Theme.of(context).textTheme.bodySmall),
         const SizedBox(height: 12),
-        RatingGauge(
-            title: 'Agua cristalina', rating: conditions.rateWaterClarity()),
+        _waterClarityGauge(conditions.rateWaterClarity()),
         const SizedBox(height: 16),
         _playaRemovidaGauge(conditions.ratePlayaRemovida()),
         const SizedBox(height: 16),

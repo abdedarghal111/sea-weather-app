@@ -130,6 +130,7 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
                         );
                       }
                       final conditions = snap.data!.current;
+                      final agua = conditions.rateWaterClarity().level;
                       final playa = conditions.ratePlayaRemovida().level;
                       return Padding(
                         padding: const EdgeInsets.only(top: 8),
@@ -137,7 +138,7 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
                           spacing: 12,
                           runSpacing: 4,
                           children: [
-                            _indicator('Agua', conditions.rateWaterClarity().level),
+                            _indicator(agua.waterClarityTitle, agua),
                             _indicator(playa.playaRemovidaShortLabel, playa),
                             _indicator('Surf', conditions.rateSurf().level),
                             _indicator('Sol', conditions.rateSun().level),
