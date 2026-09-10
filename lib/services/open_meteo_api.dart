@@ -233,61 +233,11 @@ class OpenMeteoApi {
       return sum / count;
     }
 
-    WeatherSnapshot buildSnapshot({
-      required double airTemperature,
-      required double apparentTemperature,
-      required double cloudCover,
-      required double precipitationProbability,
-      required double precipitationTotal,
-      required double precipitationPast48h,
-      required double windSpeed,
-      required double windGustSpeed,
-      required double averageWindSpeedPast48h,
-      required double uvIndex,
-      required double sunshineHours,
-      required int periodWeatherCode,
-      required int instantWeatherCode,
-      double? waveHeight,
-      double? rmsWaveHeightPast48h,
-      double? windWaveHeight,
-      double? swellHeight,
-      double? swellPeriod,
-      double? seaTemperature,
-      DateTime? sunrise,
-      DateTime? sunset,
-      double? windFromDirection,
-      double? waveFromDirection,
-      required DateTime fetchedAt,
-    }) =>
-        WeatherSnapshot(
-          airTemperature: airTemperature,
-          apparentTemperature: apparentTemperature,
-          cloudCover: cloudCover,
-          precipitationProbability: precipitationProbability,
-          precipitationTotal: precipitationTotal,
-          precipitationPast48h: precipitationPast48h,
-          windSpeed: windSpeed,
-          windGustSpeed: windGustSpeed,
-          averageWindSpeedPast48h: averageWindSpeedPast48h,
-          uvIndex: uvIndex,
-          sunshineHours: sunshineHours,
-          periodWeatherCode: periodWeatherCode,
-          instantWeatherCode: instantWeatherCode,
-          waveHeight: waveHeight,
-          rmsWaveHeightPast48h: rmsWaveHeightPast48h,
-          windWaveHeight: windWaveHeight,
-          swellHeight: swellHeight,
-          swellPeriod: swellPeriod,
-          seaTemperature: seaTemperature,
-          sunrise: sunrise,
-          sunset: sunset,
-          windFromDirection: windFromDirection,
-          waveFromDirection: waveFromDirection,
-          fetchedAt: fetchedAt,
-        );
-
-    // Lectura por índice tolerante a arrays más cortos de lo pedido.
-    num? numberAt(List<num?> values, int i) => i < values.length ? values[i] : null;
+    // Lectura por índice tolerante a arrays más cortos de lo pedido. Los
+    // marinos, además, pueden no existir (punto no costero) o acabarse antes
+    // del horizonte del modelo de olas: en ambos casos devuelve null igual.
+    num? numberAt(List<num?>? values, int i) =>
+        (values != null && i < values.length) ? values[i] : null;
     String? stringAt(List<String?> values, int i) => i < values.length ? values[i] : null;
     DateTime? parseTime(String? raw) => raw == null ? null : DateTime.tryParse(raw);
 
@@ -318,7 +268,7 @@ class OpenMeteoApi {
       return todayIndex * 24;
     }
 
-    final nowSnapshot = buildSnapshot(
+    final nowSnapshot = WeatherSnapshot(
       // Los valores de `current` pueden faltar: se cae al agregado de hoy.
       apparentTemperature: (current['apparent_temperature'] as num?)?.toDouble() ??
           requireTodayValue(dailyApparentTemp, 'apparent_temperature_max'),
@@ -348,12 +298,6 @@ class OpenMeteoApi {
       sunset: parseTime(stringAt(dailySunset, todayIndex)),
       fetchedAt: DateTime.now(),
     );
-
-    // Acceso seguro a un array marino horario/diario en la posición [i]:
-    // fuera de rango o dentro del hueco null de después del horizonte real
-    // del modelo (ver comentario más arriba) devuelven null por igual.
-    num? marineValueAt(List<num?>? values, int i) =>
-        (values != null && i < values.length) ? values[i] : null;
 
     // Por horas: de hoy 0:00 hasta el final del array (últimos días de forecast).
     final todayHourStart = todayIndex * 24;
@@ -389,7 +333,7 @@ class OpenMeteoApi {
 
       hourlyPoints.add(ForecastPoint(
         time: time,
-        weather: buildSnapshot(
+        weather: WeatherSnapshot(
           airTemperature: temp.toDouble(),
           apparentTemperature: apparentTemp.toDouble(),
           cloudCover: cloudCover.toDouble(),
@@ -403,16 +347,16 @@ class OpenMeteoApi {
           sunshineHours: sunshine.toDouble() / 3600,
           periodWeatherCode: code.toInt(),
           instantWeatherCode: code.toInt(),
-          waveHeight: marineValueAt(hourlyWave, i)?.toDouble(),
-          windWaveHeight: marineValueAt(hourlyWindWave, i)?.toDouble(),
-          swellHeight: marineValueAt(hourlySwellHeight, i)?.toDouble(),
-          swellPeriod: marineValueAt(hourlySwellPeriod, i)?.toDouble(),
-          seaTemperature: marineValueAt(hourlySeaTemp, i)?.toDouble(),
+          waveHeight: numberAt(hourlyWave, i)?.toDouble(),
+          windWaveHeight: numberAt(hourlyWindWave, i)?.toDouble(),
+          swellHeight: numberAt(hourlySwellHeight, i)?.toDouble(),
+          swellPeriod: numberAt(hourlySwellPeriod, i)?.toDouble(),
+          seaTemperature: numberAt(hourlySeaTemp, i)?.toDouble(),
           rmsWaveHeightPast48h: trailingRms(hourlyWave, i, 48),
           sunrise: parseTime(stringAt(dailySunrise, i ~/ 24)),
           sunset: parseTime(stringAt(dailySunset, i ~/ 24)),
           windFromDirection: numberAt(hourlyWindDirection, i)?.toDouble(),
-          waveFromDirection: marineValueAt(hourlyWaveDirection, i)?.toDouble(),
+          waveFromDirection: numberAt(hourlyWaveDirection, i)?.toDouble(),
           fetchedAt: time,
         ),
       ));
@@ -450,7 +394,7 @@ class OpenMeteoApi {
 
       dailyPoints.add(ForecastPoint(
         time: time,
-        weather: buildSnapshot(
+        weather: WeatherSnapshot(
           airTemperature: temp.toDouble(),
           apparentTemperature: apparentTemp.toDouble(),
           cloudCover: cloudCover.toDouble(),
@@ -464,7 +408,7 @@ class OpenMeteoApi {
           sunshineHours: sunshine.toDouble() / 3600,
           periodWeatherCode: code.toInt(),
           instantWeatherCode: code.toInt(),
-          waveHeight: marineValueAt(dailyWaveMax, d)?.toDouble(),
+          waveHeight: numberAt(dailyWaveMax, d)?.toDouble(),
           windWaveHeight: marineDailyMax(hourlyWindWave, d),
           swellHeight: marineDailyMax(hourlySwellHeight, d),
           swellPeriod: marineDailyMax(hourlySwellPeriod, d),
@@ -473,7 +417,7 @@ class OpenMeteoApi {
           sunrise: parseTime(stringAt(dailySunrise, d)),
           sunset: parseTime(stringAt(dailySunset, d)),
           windFromDirection: numberAt(dailyWindDirection, d)?.toDouble(),
-          waveFromDirection: marineValueAt(dailyWaveDirection, d)?.toDouble(),
+          waveFromDirection: numberAt(dailyWaveDirection, d)?.toDouble(),
           fetchedAt: time,
         ),
       ));
