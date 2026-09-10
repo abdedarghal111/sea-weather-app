@@ -12,6 +12,48 @@ extension RatingLevelLabel on RatingLevel {
       };
 }
 
+extension RainTitle on RatingLevel {
+  String get rainTitle => switch (this) {
+        RatingLevel.veryGood => 'Sin lluvia',
+        RatingLevel.good => 'Casi sin lluvia',
+        RatingLevel.ok => 'Puede llover',
+        RatingLevel.bad => 'Va a llover',
+        RatingLevel.veryBad => 'Lluvia segura',
+      };
+}
+
+extension WaterClarityTitle on RatingLevel {
+  String get waterClarityTitle => switch (this) {
+        RatingLevel.veryGood => 'Agua cristalina',
+        RatingLevel.good => 'Agua clara',
+        RatingLevel.ok => 'Agua algo opaca',
+        RatingLevel.bad => 'Agua opaca',
+        RatingLevel.veryBad => 'Agua muy opaca',
+      };
+}
+
+extension PlayaRemovidaTitle on RatingLevel {
+  String get playaRemovidaTitle => switch (this) {
+        RatingLevel.veryGood => 'Playa muy tranquila',
+        RatingLevel.good => 'Playa tranquila',
+        RatingLevel.ok => 'Playa algo removida',
+        RatingLevel.bad => 'Playa removida',
+        RatingLevel.veryBad => 'Playa muy removida',
+      };
+
+  String get playaRemovidaShortLabel => switch (this) {
+        RatingLevel.veryGood => 'Tranquila',
+        RatingLevel.good => 'Tranquila',
+        RatingLevel.ok => 'Algo removida',
+        RatingLevel.bad => 'Removida',
+        RatingLevel.veryBad => 'Muy removida',
+      };
+}
+
+const rainSeriesTitle = 'Lluvia prevista';
+const waterClaritySeriesTitle = 'Agua clara u opaca';
+const playaRemovidaSeriesTitle = 'Playa tranquila o removida';
+
 class BeachRating {
   final RatingLevel level;
   final String reason;

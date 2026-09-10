@@ -245,7 +245,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     switch (index) {
       case 0:
         return RatingTimeSeriesChart(
-          title: 'Agua cristalina',
+          title: waterClaritySeriesTitle,
           times: times,
           scores: points
               .map((p) => p.conditions.rateWaterClarity().score)
@@ -255,7 +255,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
         );
       case 1:
         return RatingTimeSeriesChart(
-          title: 'Playa removida',
+          title: playaRemovidaSeriesTitle,
           times: times,
           scores: points
               .map((p) => p.conditions.ratePlayaRemovida().score)
@@ -281,7 +281,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
         );
       case 4:
         return RatingTimeSeriesChart(
-          title: 'Lluvia',
+          title: rainSeriesTitle,
           times: times,
           scores: points.map((p) => p.conditions.rateRain().score).toList(),
           labelBuilder: labelBuilder,
@@ -420,6 +420,15 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     );
   }
 
+  Widget _rainGauge(BeachRating rating) =>
+      RatingGauge(title: rating.level.rainTitle, rating: rating);
+
+  Widget _waterClarityGauge(BeachRating rating) =>
+      RatingGauge(title: rating.level.waterClarityTitle, rating: rating);
+
+  Widget _playaRemovidaGauge(BeachRating rating) =>
+      RatingGauge(title: rating.level.playaRemovidaTitle, rating: rating);
+
   Widget _buildNowTab(BeachConditions conditions) {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -427,17 +436,15 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
         Text(_minutesAgoLabel(conditions.fetchedAt),
             style: Theme.of(context).textTheme.bodySmall),
         const SizedBox(height: 12),
-        RatingGauge(
-            title: 'Agua cristalina', rating: conditions.rateWaterClarity()),
+        _waterClarityGauge(conditions.rateWaterClarity()),
         const SizedBox(height: 16),
-        RatingGauge(
-            title: 'Playa removida', rating: conditions.ratePlayaRemovida()),
+        _playaRemovidaGauge(conditions.ratePlayaRemovida()),
         const SizedBox(height: 16),
         RatingGauge(title: 'Surf', rating: conditions.rateSurf()),
         const SizedBox(height: 16),
         RatingGauge(title: 'Sol', rating: conditions.rateSun()),
         const SizedBox(height: 16),
-        RatingGauge(title: 'Lluvia', rating: conditions.rateRain()),
+        _rainGauge(conditions.rateRain()),
         const SizedBox(height: 16),
         Text('Todos los datos', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
