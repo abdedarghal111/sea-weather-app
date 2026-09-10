@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../models/beach_conditions.dart';
+import '../models/weather_snapshot.dart';
 
 /// Barra estilo termómetro con 5 tramos fijos (de peor a mejor, izquierda a
 /// derecha) que sirven de escala y leyenda. No es una barra de progreso: no
 /// se rellena; en su lugar, un marcador se coloca de forma continua sobre la
-/// escala según [BeachRating.score], reflejando el valor real y no solo la
+/// escala según [Rating.score], reflejando el valor real y no solo la
 /// categoría discreta en la que cae.
 class RatingGauge extends StatelessWidget {
   final String title;
-  final BeachRating rating;
+  final Rating rating;
 
   const RatingGauge({super.key, required this.title, required this.rating});
 
@@ -27,7 +27,7 @@ class RatingGauge extends StatelessWidget {
   Color get _levelColor => switch (rating.level) {
         RatingLevel.veryBad => Colors.red,
         RatingLevel.bad => Colors.deepOrange,
-        RatingLevel.ok => Colors.amber.shade800,
+        RatingLevel.fair => Colors.amber.shade800,
         RatingLevel.good => Colors.lightGreen.shade800,
         RatingLevel.veryGood => Colors.green,
       };
@@ -35,7 +35,7 @@ class RatingGauge extends StatelessWidget {
   FaIconData get _levelIcon => switch (rating.level) {
         RatingLevel.veryBad => FontAwesomeIcons.ban,
         RatingLevel.bad => FontAwesomeIcons.circleXmark,
-        RatingLevel.ok => FontAwesomeIcons.triangleExclamation,
+        RatingLevel.fair => FontAwesomeIcons.triangleExclamation,
         RatingLevel.good => FontAwesomeIcons.circleCheck,
         RatingLevel.veryGood => FontAwesomeIcons.circleCheck,
       };

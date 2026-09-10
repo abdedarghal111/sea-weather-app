@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'weather_api_error.dart';
+import 'api_error.dart';
 
 class GeocodingResult {
   final String name;

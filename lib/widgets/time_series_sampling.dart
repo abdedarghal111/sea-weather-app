@@ -5,7 +5,7 @@
 /// La línea del gráfico sigue dibujando TODOS los puntos reales (la forma
 /// completa de los datos); esto solo decide qué subconjunto de horas se
 /// etiqueta y marca con rejilla para no saturar pantallas estrechas.
-int labelStep(int totalPoints, double availableWidth, double spacing) {
+int labelInterval(int totalPoints, double availableWidth, double spacing) {
   if (totalPoints <= 1) return 1;
   final maxLabels = (availableWidth / spacing).floor().clamp(1, totalPoints);
   return (totalPoints / maxLabels).ceil();

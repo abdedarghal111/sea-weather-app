@@ -18,7 +18,7 @@ class DirectionArrowsChart extends StatelessWidget {
   final List<DateTime> times;
   final List<double?> directions;
   final String Function(DateTime time) labelBuilder;
-  final double? highlightX;
+  final double? highlightPosition;
 
   const DirectionArrowsChart({
     super.key,
@@ -27,7 +27,7 @@ class DirectionArrowsChart extends StatelessWidget {
     required this.times,
     required this.directions,
     required this.labelBuilder,
-    this.highlightX,
+    this.highlightPosition,
   });
 
   static const _pointSpacing = 32.0;
@@ -41,7 +41,7 @@ class DirectionArrowsChart extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final highlightIndex = highlightX?.round();
+    final highlightIndex = highlightPosition?.round();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
@@ -62,7 +62,7 @@ class DirectionArrowsChart extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               final labelEvery =
-                  labelStep(times.length, constraints.maxWidth, _pointSpacing);
+                  labelInterval(times.length, constraints.maxWidth, _pointSpacing);
               return SizedBox(
                 width: constraints.maxWidth,
                 height: 60,

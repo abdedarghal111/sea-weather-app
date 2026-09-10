@@ -8,14 +8,14 @@ class WindDirectionChart extends StatelessWidget {
   final List<DateTime> times;
   final List<double?> directions;
   final String Function(DateTime time) labelBuilder;
-  final double? highlightX;
+  final double? highlightPosition;
 
   const WindDirectionChart({
     super.key,
     required this.times,
     required this.directions,
     required this.labelBuilder,
-    this.highlightX,
+    this.highlightPosition,
   });
 
   @override
@@ -30,6 +30,6 @@ class WindDirectionChart extends StatelessWidget {
         times: times,
         directions: directions,
         labelBuilder: labelBuilder,
-        highlightX: highlightX,
+        highlightPosition: highlightPosition,
       );
 }

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-import 'screens/spots_list_screen.dart';
+import 'screens/saved_locations_screen.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const SeaWeatherApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class SeaWeatherApp extends StatelessWidget {
+  const SeaWeatherApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +20,7 @@ class MyApp extends StatelessWidget {
       // respeta la barra de estado superior por sí solo, así que aquí solo
       // hace falta reservar espacio abajo (y a los lados, por si acaso).
       builder: (context, child) => SafeArea(top: false, child: child!),
-      home: const SpotsListScreen(),
+      home: const SavedLocationsScreen(),
     );
   }
 }

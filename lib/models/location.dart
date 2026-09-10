@@ -1,17 +1,17 @@
-class Spot {
+class Location {
   final String id;
   final String name;
   final double latitude;
   final double longitude;
 
-  const Spot({
+  const Location({
     required this.id,
     required this.name,
     required this.latitude,
     required this.longitude,
   });
 
-  String get cacheKey => '${latitude}_$longitude';
+  String get coordinatesKey => '${latitude}_$longitude';
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -20,7 +20,7 @@ class Spot {
         'longitude': longitude,
       };
 
-  factory Spot.fromJson(Map<String, dynamic> json) => Spot(
+  factory Location.fromJson(Map<String, dynamic> json) => Location(
         id: json['id'] as String,
         name: json['name'] as String,
         latitude: (json['latitude'] as num).toDouble(),

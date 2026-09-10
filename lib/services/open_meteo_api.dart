@@ -3,12 +3,12 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import '../models/beach_conditions.dart';
-import '../models/condition_point.dart';
-import '../models/spot.dart';
-import '../models/spot_conditions_bundle.dart';
+import '../models/forecast_point.dart';
+import '../models/location.dart';
+import '../models/location_forecast.dart';
 import '../models/trailing_window.dart';
-import 'weather_api_error.dart';
+import '../models/weather_snapshot.dart';
+import 'api_error.dart';
 
 const _requestTimeout = Duration(seconds: 15);
 
@@ -25,9 +25,9 @@ class OpenMeteoApi {
 
   /// Open-Meteo limita las peticiones **simultáneas** (responde 429 "too many
   /// concurrent requests" a partir de unas cinco a la vez), aparte de la
-  /// cuota por minuto. Con varias calas en pantalla es fácil pasarse, así que
-  /// las consultas se encolan.
-  static final _gate = _RequestGate(4);
+  /// cuota por minuto. Con varias localidades en pantalla es fácil pasarse,
+  /// así que las consultas se encolan.
+  static final _requestGate = _RequestGate(4);
 
   /// Espera entre reintentos de un fallo transitorio. Un 429 por concurrencia
   /// se despeja en milisegundos.
@@ -37,12 +37,12 @@ class OpenMeteoApi {
   ];
 
   /// Pide un JSON reintentando los fallos transitorios y traduciendo el resto
-  /// a [WeatherApiException].
+  /// a [ApiException].
   static Future<Map<String, dynamic>> _fetchJson(Uri uri) async {
     for (var attempt = 0;; attempt++) {
       try {
-        return await _gate.run(() => _getJson(uri));
-      } on WeatherApiException catch (error) {
+        return await _requestGate.run(() => _getJson(uri));
+      } on ApiException catch (error) {
         if (!error.isRetryable || attempt >= _retryDelays.length) rethrow;
         await Future<void>.delayed(_retryDelays[attempt]);
       }
@@ -90,15 +90,10 @@ class OpenMeteoApi {
     return raw.map((v) => v is String ? v : null).toList(growable: false);
   }
 
-  static Future<BeachConditions> fetchConditions(Spot spot) async {
-    final bundle = await fetchConditionsBundle(spot);
-    return bundle.current;
-  }
-
-  static Future<SpotConditionsBundle> fetchConditionsBundle(Spot spot) async {
+  static Future<LocationForecast> fetchForecast(Location location) async {
     final forecastUri = Uri.parse(
       'https://api.open-meteo.com/v1/forecast'
-      '?latitude=${spot.latitude}&longitude=${spot.longitude}'
+      '?latitude=${location.latitude}&longitude=${location.longitude}'
       '&current=temperature_2m,apparent_temperature,cloud_cover,weather_code'
       '&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,'
       'weather_code,cloud_cover,wind_speed_10m,wind_gusts_10m,uv_index,wind_direction_10m'
@@ -109,7 +104,7 @@ class OpenMeteoApi {
     );
     final marineUri = Uri.parse(
       'https://marine-api.open-meteo.com/v1/marine'
-      '?latitude=${spot.latitude}&longitude=${spot.longitude}'
+      '?latitude=${location.latitude}&longitude=${location.longitude}'
       '&current=wave_height,wave_direction,wind_wave_height,swell_wave_height,'
       'swell_wave_period,sea_surface_temperature'
       '&hourly=wave_height,wave_direction,wind_wave_height,swell_wave_height,'
@@ -133,9 +128,9 @@ class OpenMeteoApi {
     final daily = forecast['daily'] as Map<String, dynamic>?;
     final hourly = forecast['hourly'] as Map<String, dynamic>?;
     if (current == null || daily == null || hourly == null) {
-      throw const WeatherApiException(
-        WeatherErrorKind.malformedResponse,
-        'La previsión de esta zona ha llegado incompleta.',
+      throw const ApiException(
+        ApiErrorKind.malformedResponse,
+        'La previsión de esta localidad ha llegado incompleta.',
       );
     }
     final marineCurrent = marine?['current'] as Map<String, dynamic>?;
@@ -148,9 +143,9 @@ class OpenMeteoApi {
     // en Dart es perezoso: no falla al castear, falla al leer.
     final dailyTime = _stringList(daily['time']);
     final dailyTemp = _numList(daily['temperature_2m_max']);
-    final dailyFeelsLike = _numList(daily['apparent_temperature_max']);
-    final dailyRainProb = _numList(daily['precipitation_probability_max']);
-    final dailyRainSum = _numList(daily['precipitation_sum']);
+    final dailyApparentTemp = _numList(daily['apparent_temperature_max']);
+    final dailyRainProbability = _numList(daily['precipitation_probability_max']);
+    final dailyRainTotal = _numList(daily['precipitation_sum']);
     final dailyWind = _numList(daily['wind_speed_10m_max']);
     final dailyGusts = _numList(daily['wind_gusts_10m_max']);
     final dailyUv = _numList(daily['uv_index_max']);
@@ -166,9 +161,9 @@ class OpenMeteoApi {
 
     final hourlyTime = _stringList(hourly['time']);
     final hourlyTemp = _numList(hourly['temperature_2m']);
-    final hourlyFeelsLike = _numList(hourly['apparent_temperature']);
-    final hourlyRainProb = _numList(hourly['precipitation_probability']);
-    final hourlyRainSum = _numList(hourly['precipitation']);
+    final hourlyApparentTemp = _numList(hourly['apparent_temperature']);
+    final hourlyRainProbability = _numList(hourly['precipitation_probability']);
+    final hourlyRainTotal = _numList(hourly['precipitation']);
     final hourlyWeatherCode = _numList(hourly['weather_code']);
     final hourlyCloudCover = _numList(hourly['cloud_cover']);
     final hourlyWind = _numList(hourly['wind_speed_10m']);
@@ -186,8 +181,7 @@ class OpenMeteoApi {
     final todayIndex = _pastDays;
 
     // "Sostenido/reciente" = media (viento) o suma (lluvia) de los 2 días
-    // anteriores a [dayIndex], sin incluir ese propio día (igual que el
-    // cálculo "actual" de siempre, solo que ahora reutilizable por índice).
+    // anteriores a [dayIndex], sin incluir ese propio día.
     double? recentDailyAverage(List<num?> values, int dayIndex) {
       if (dayIndex <= 0) return null;
       return trailingAverage(values, dayIndex - 1, 2);
@@ -215,7 +209,7 @@ class OpenMeteoApi {
     // La API marina no ofrece agregados diarios nativos para oleaje de
     // fondo/viento/temperatura del agua (solo wave_height_max): se derivan
     // agrupando el array horario marino por día de calendario.
-    double? dailyMarineMax(List<num?>? hourlyValues, int dayIndex) {
+    double? marineDailyMax(List<num?>? hourlyValues, int dayIndex) {
       if (hourlyValues == null) return null;
       final start = dayIndex * 24;
       final end = (start + 24).clamp(0, hourlyValues.length);
@@ -228,7 +222,7 @@ class OpenMeteoApi {
       return max?.toDouble();
     }
 
-    double? dailyMarineMean(List<num?>? hourlyValues, int dayIndex) {
+    double? marineDailyMean(List<num?>? hourlyValues, int dayIndex) {
       if (hourlyValues == null) return null;
       final start = dayIndex * 24;
       final end = (start + 24).clamp(0, hourlyValues.length);
@@ -244,153 +238,139 @@ class OpenMeteoApi {
       return sum / count;
     }
 
-    // Igual que [trailingMax] de trailing_window.dart pero saltándose los
-    // huecos null del array marino (ver comentario de arriba) en vez de
-    // asumir datos completos.
-    double? trailingMarineMax(List<num?>? values, int index, int windowSize) {
-      if (values == null || index >= values.length || values[index] == null) return null;
-      final start = (index - windowSize + 1).clamp(0, index);
-      num? max;
-      for (var i = start; i <= index; i++) {
-        final v = values[i];
-        if (v == null) continue;
-        if (max == null || v > max) max = v;
-      }
-      return max?.toDouble();
-    }
-
-    BeachConditions buildConditions({
-      required double airTempMax,
-      required double feelsLike,
-      required double cloudCoverCurrent,
-      required double precipitationProbabilityMax,
-      required double precipitationSumToday,
-      required double precipitationSumRecent48h,
-      required double windSpeedMax,
-      required double windGustsMax,
-      required double windSpeedSustained48h,
-      required double uvIndexMax,
-      required double sunshineDurationHours,
-      required int weatherCode,
-      required int currentWeatherCode,
+    WeatherSnapshot buildSnapshot({
+      required double airTemperature,
+      required double apparentTemperature,
+      required double cloudCover,
+      required double precipitationProbability,
+      required double precipitationTotal,
+      required double precipitationPast48h,
+      required double windSpeed,
+      required double windGustSpeed,
+      required double averageWindSpeedPast48h,
+      required double uvIndex,
+      required double sunshineHours,
+      required int periodWeatherCode,
+      required int instantWeatherCode,
       double? waveHeight,
-      double? waveHeightMaxRecent48h,
+      double? waveHeightPast48h,
       double? windWaveHeight,
-      double? swellWaveHeight,
-      double? swellWavePeriod,
-      double? seaSurfaceTemperature,
+      double? swellHeight,
+      double? swellPeriod,
+      double? seaTemperature,
       DateTime? sunrise,
       DateTime? sunset,
-      double? windDirection10m,
-      double? waveDirection,
+      double? windFromDirection,
+      double? waveFromDirection,
       required DateTime fetchedAt,
     }) =>
-        BeachConditions(
-          airTempMax: airTempMax,
-          feelsLike: feelsLike,
-          cloudCoverCurrent: cloudCoverCurrent,
-          precipitationProbabilityMax: precipitationProbabilityMax,
-          precipitationSumToday: precipitationSumToday,
-          precipitationSumRecent48h: precipitationSumRecent48h,
-          windSpeedMax: windSpeedMax,
-          windGustsMax: windGustsMax,
-          windSpeedSustained48h: windSpeedSustained48h,
-          uvIndexMax: uvIndexMax,
-          sunshineDurationHours: sunshineDurationHours,
-          weatherCode: weatherCode,
-          currentWeatherCode: currentWeatherCode,
+        WeatherSnapshot(
+          airTemperature: airTemperature,
+          apparentTemperature: apparentTemperature,
+          cloudCover: cloudCover,
+          precipitationProbability: precipitationProbability,
+          precipitationTotal: precipitationTotal,
+          precipitationPast48h: precipitationPast48h,
+          windSpeed: windSpeed,
+          windGustSpeed: windGustSpeed,
+          averageWindSpeedPast48h: averageWindSpeedPast48h,
+          uvIndex: uvIndex,
+          sunshineHours: sunshineHours,
+          periodWeatherCode: periodWeatherCode,
+          instantWeatherCode: instantWeatherCode,
           waveHeight: waveHeight,
-          waveHeightMaxRecent48h: waveHeightMaxRecent48h,
+          waveHeightPast48h: waveHeightPast48h,
           windWaveHeight: windWaveHeight,
-          swellWaveHeight: swellWaveHeight,
-          swellWavePeriod: swellWavePeriod,
-          seaSurfaceTemperature: seaSurfaceTemperature,
+          swellHeight: swellHeight,
+          swellPeriod: swellPeriod,
+          seaTemperature: seaTemperature,
           sunrise: sunrise,
           sunset: sunset,
-          windDirection10m: windDirection10m,
-          waveDirection: waveDirection,
+          windFromDirection: windFromDirection,
+          waveFromDirection: waveFromDirection,
           fetchedAt: fetchedAt,
         );
 
     // Lectura por índice tolerante a arrays más cortos de lo pedido.
-    num? dayNum(List<num?> values, int i) => i < values.length ? values[i] : null;
-    String? dayStr(List<String?> values, int i) => i < values.length ? values[i] : null;
+    num? numberAt(List<num?> values, int i) => i < values.length ? values[i] : null;
+    String? stringAt(List<String?> values, int i) => i < values.length ? values[i] : null;
     DateTime? parseTime(String? raw) => raw == null ? null : DateTime.tryParse(raw);
 
     // La tarjeta "ahora" es lo mínimo que la pantalla necesita: si el día de
     // hoy llega incompleto, la respuesta no sirve y se dice por qué.
-    double todayValue(List<num?> values, String field) {
-      final value = dayNum(values, todayIndex);
+    double requireTodayValue(List<num?> values, String field) {
+      final value = numberAt(values, todayIndex);
       if (value == null) {
-        throw WeatherApiException(
-          WeatherErrorKind.malformedResponse,
-          'La previsión de hoy de esta zona ha llegado incompleta.',
+        throw ApiException(
+          ApiErrorKind.malformedResponse,
+          'La previsión de hoy de esta localidad ha llegado incompleta.',
           reason: '$field sin dato en el día $todayIndex',
         );
       }
       return value.toDouble();
     }
 
-    final currentConditions = buildConditions(
+    final nowSnapshot = buildSnapshot(
       // Los valores de `current` pueden faltar: se cae al agregado de hoy.
-      feelsLike: (current['apparent_temperature'] as num?)?.toDouble() ??
-          todayValue(dailyFeelsLike, 'apparent_temperature_max'),
-      cloudCoverCurrent: (current['cloud_cover'] as num?)?.toDouble() ??
-          todayValue(dailyCloudCover, 'cloud_cover_mean'),
-      airTempMax: todayValue(dailyTemp, 'temperature_2m_max'),
-      precipitationProbabilityMax: todayValue(dailyRainProb, 'precipitation_probability_max'),
-      precipitationSumToday: todayValue(dailyRainSum, 'precipitation_sum'),
-      precipitationSumRecent48h: recentDailySum(dailyRainSum, todayIndex) ?? 0,
-      windSpeedMax: todayValue(dailyWind, 'wind_speed_10m_max'),
-      windGustsMax: todayValue(dailyGusts, 'wind_gusts_10m_max'),
-      windSpeedSustained48h: recentDailyAverage(dailyWind, todayIndex) ??
-          todayValue(dailyWind, 'wind_speed_10m_max'),
-      uvIndexMax: todayValue(dailyUv, 'uv_index_max'),
-      sunshineDurationHours: todayValue(dailySunshine, 'sunshine_duration') / 3600,
-      weatherCode: todayValue(dailyWeatherCode, 'weather_code').toInt(),
-      currentWeatherCode: (current['weather_code'] as num?)?.toInt() ??
-          todayValue(dailyWeatherCode, 'weather_code').toInt(),
+      apparentTemperature: (current['apparent_temperature'] as num?)?.toDouble() ??
+          requireTodayValue(dailyApparentTemp, 'apparent_temperature_max'),
+      cloudCover: (current['cloud_cover'] as num?)?.toDouble() ??
+          requireTodayValue(dailyCloudCover, 'cloud_cover_mean'),
+      airTemperature: requireTodayValue(dailyTemp, 'temperature_2m_max'),
+      precipitationProbability: requireTodayValue(dailyRainProbability, 'precipitation_probability_max'),
+      precipitationTotal: requireTodayValue(dailyRainTotal, 'precipitation_sum'),
+      precipitationPast48h: recentDailySum(dailyRainTotal, todayIndex) ?? 0,
+      windSpeed: requireTodayValue(dailyWind, 'wind_speed_10m_max'),
+      windGustSpeed: requireTodayValue(dailyGusts, 'wind_gusts_10m_max'),
+      averageWindSpeedPast48h: recentDailyAverage(dailyWind, todayIndex) ??
+          requireTodayValue(dailyWind, 'wind_speed_10m_max'),
+      uvIndex: requireTodayValue(dailyUv, 'uv_index_max'),
+      sunshineHours: requireTodayValue(dailySunshine, 'sunshine_duration') / 3600,
+      periodWeatherCode: requireTodayValue(dailyWeatherCode, 'weather_code').toInt(),
+      instantWeatherCode: (current['weather_code'] as num?)?.toInt() ??
+          requireTodayValue(dailyWeatherCode, 'weather_code').toInt(),
       waveHeight: (marineCurrent?['wave_height'] as num?)?.toDouble(),
       windWaveHeight: (marineCurrent?['wind_wave_height'] as num?)?.toDouble(),
-      swellWaveHeight: (marineCurrent?['swell_wave_height'] as num?)?.toDouble(),
-      swellWavePeriod: (marineCurrent?['swell_wave_period'] as num?)?.toDouble(),
-      seaSurfaceTemperature: (marineCurrent?['sea_surface_temperature'] as num?)?.toDouble(),
-      waveHeightMaxRecent48h: recentMarineDailyAverage(todayIndex),
-      waveDirection: (marineCurrent?['wave_direction'] as num?)?.toDouble(),
-      sunrise: parseTime(dayStr(dailySunrise, todayIndex)),
-      sunset: parseTime(dayStr(dailySunset, todayIndex)),
+      swellHeight: (marineCurrent?['swell_wave_height'] as num?)?.toDouble(),
+      swellPeriod: (marineCurrent?['swell_wave_period'] as num?)?.toDouble(),
+      seaTemperature: (marineCurrent?['sea_surface_temperature'] as num?)?.toDouble(),
+      waveHeightPast48h: recentMarineDailyAverage(todayIndex),
+      waveFromDirection: (marineCurrent?['wave_direction'] as num?)?.toDouble(),
+      sunrise: parseTime(stringAt(dailySunrise, todayIndex)),
+      sunset: parseTime(stringAt(dailySunset, todayIndex)),
       fetchedAt: DateTime.now(),
     );
 
     // Acceso seguro a un array marino horario/diario en la posición [i]:
     // fuera de rango o dentro del hueco null de después del horizonte real
     // del modelo (ver comentario más arriba) devuelven null por igual.
-    num? marineAt(List<num?>? values, int i) => (values != null && i < values.length) ? values[i] : null;
+    num? marineValueAt(List<num?>? values, int i) =>
+        (values != null && i < values.length) ? values[i] : null;
 
     // Por horas: de hoy 0:00 hasta el final del array (últimos días de forecast).
     final todayHourStart = todayIndex * 24;
-    final hourlyPoints = <ConditionPoint>[];
+    final hourlyPoints = <ForecastPoint>[];
     for (var i = todayHourStart; i < hourlyTime.length; i++) {
       // Una hora sin todos sus datos se omite: es lo que devuelve la API en
       // las últimas horas del rango cuando el punto tiene desfase horario
       // negativo respecto a UTC. Mejor un hueco en la gráfica que un fallo.
-      final time = parseTime(dayStr(hourlyTime, i));
-      final temp = dayNum(hourlyTemp, i);
-      final feelsLike = dayNum(hourlyFeelsLike, i);
-      final cloudCover = dayNum(hourlyCloudCover, i);
-      final rainProb = dayNum(hourlyRainProb, i);
-      final wind = dayNum(hourlyWind, i);
-      final gusts = dayNum(hourlyGusts, i);
-      final uv = dayNum(hourlyUv, i);
-      final code = dayNum(hourlyWeatherCode, i);
+      final time = parseTime(stringAt(hourlyTime, i));
+      final temp = numberAt(hourlyTemp, i);
+      final apparentTemp = numberAt(hourlyApparentTemp, i);
+      final cloudCover = numberAt(hourlyCloudCover, i);
+      final rainProbability = numberAt(hourlyRainProbability, i);
+      final wind = numberAt(hourlyWind, i);
+      final gusts = numberAt(hourlyGusts, i);
+      final uv = numberAt(hourlyUv, i);
+      final code = numberAt(hourlyWeatherCode, i);
       // sunshine_duration solo existe como agregado diario: se reutiliza el
       // valor de ese día para todas sus horas.
-      final sunshine = dayNum(dailySunshine, i ~/ 24);
+      final sunshine = numberAt(dailySunshine, i ~/ 24);
       if (time == null ||
           temp == null ||
-          feelsLike == null ||
+          apparentTemp == null ||
           cloudCover == null ||
-          rainProb == null ||
+          rainProbability == null ||
           wind == null ||
           gusts == null ||
           uv == null ||
@@ -399,59 +379,59 @@ class OpenMeteoApi {
         continue;
       }
 
-      hourlyPoints.add(ConditionPoint(
+      hourlyPoints.add(ForecastPoint(
         time: time,
-        conditions: buildConditions(
-          airTempMax: temp.toDouble(),
-          feelsLike: feelsLike.toDouble(),
-          cloudCoverCurrent: cloudCover.toDouble(),
-          precipitationProbabilityMax: rainProb.toDouble(),
-          precipitationSumToday: trailingSum(hourlyRainSum, i, 24),
-          precipitationSumRecent48h: trailingSum(hourlyRainSum, i, 48),
-          windSpeedMax: wind.toDouble(),
-          windGustsMax: gusts.toDouble(),
-          windSpeedSustained48h: trailingAverage(hourlyWind, i, 48) ?? wind.toDouble(),
-          uvIndexMax: uv.toDouble(),
-          sunshineDurationHours: sunshine.toDouble() / 3600,
-          weatherCode: code.toInt(),
-          currentWeatherCode: code.toInt(),
-          waveHeight: marineAt(hourlyWave, i)?.toDouble(),
-          windWaveHeight: marineAt(hourlyWindWave, i)?.toDouble(),
-          swellWaveHeight: marineAt(hourlySwellHeight, i)?.toDouble(),
-          swellWavePeriod: marineAt(hourlySwellPeriod, i)?.toDouble(),
-          seaSurfaceTemperature: marineAt(hourlySeaTemp, i)?.toDouble(),
-          waveHeightMaxRecent48h: trailingMarineMax(hourlyWave, i, 48),
-          sunrise: parseTime(dayStr(dailySunrise, i ~/ 24)),
-          sunset: parseTime(dayStr(dailySunset, i ~/ 24)),
-          windDirection10m: dayNum(hourlyWindDirection, i)?.toDouble(),
-          waveDirection: marineAt(hourlyWaveDirection, i)?.toDouble(),
+        weather: buildSnapshot(
+          airTemperature: temp.toDouble(),
+          apparentTemperature: apparentTemp.toDouble(),
+          cloudCover: cloudCover.toDouble(),
+          precipitationProbability: rainProbability.toDouble(),
+          precipitationTotal: trailingSum(hourlyRainTotal, i, 24),
+          precipitationPast48h: trailingSum(hourlyRainTotal, i, 48),
+          windSpeed: wind.toDouble(),
+          windGustSpeed: gusts.toDouble(),
+          averageWindSpeedPast48h: trailingAverage(hourlyWind, i, 48) ?? wind.toDouble(),
+          uvIndex: uv.toDouble(),
+          sunshineHours: sunshine.toDouble() / 3600,
+          periodWeatherCode: code.toInt(),
+          instantWeatherCode: code.toInt(),
+          waveHeight: marineValueAt(hourlyWave, i)?.toDouble(),
+          windWaveHeight: marineValueAt(hourlyWindWave, i)?.toDouble(),
+          swellHeight: marineValueAt(hourlySwellHeight, i)?.toDouble(),
+          swellPeriod: marineValueAt(hourlySwellPeriod, i)?.toDouble(),
+          seaTemperature: marineValueAt(hourlySeaTemp, i)?.toDouble(),
+          waveHeightPast48h: trailingMaxIfPresent(hourlyWave, i, 48),
+          sunrise: parseTime(stringAt(dailySunrise, i ~/ 24)),
+          sunset: parseTime(stringAt(dailySunset, i ~/ 24)),
+          windFromDirection: numberAt(hourlyWindDirection, i)?.toDouble(),
+          waveFromDirection: marineValueAt(hourlyWaveDirection, i)?.toDouble(),
           fetchedAt: time,
         ),
       ));
     }
 
     // Próximos días: de hoy (incluido) hasta el final del array diario.
-    final dailyPoints = <ConditionPoint>[];
+    final dailyPoints = <ForecastPoint>[];
     for (var d = todayIndex; d < dailyTime.length; d++) {
       // Mismo criterio que en el bucle horario: el último día del rango llega
       // sin agregados cuando el desfase horario es negativo.
-      final time = parseTime(dayStr(dailyTime, d));
-      final temp = dayNum(dailyTemp, d);
-      final feelsLike = dayNum(dailyFeelsLike, d);
-      final cloudCover = dayNum(dailyCloudCover, d);
-      final rainProb = dayNum(dailyRainProb, d);
-      final rainSum = dayNum(dailyRainSum, d);
-      final wind = dayNum(dailyWind, d);
-      final gusts = dayNum(dailyGusts, d);
-      final uv = dayNum(dailyUv, d);
-      final sunshine = dayNum(dailySunshine, d);
-      final code = dayNum(dailyWeatherCode, d);
+      final time = parseTime(stringAt(dailyTime, d));
+      final temp = numberAt(dailyTemp, d);
+      final apparentTemp = numberAt(dailyApparentTemp, d);
+      final cloudCover = numberAt(dailyCloudCover, d);
+      final rainProbability = numberAt(dailyRainProbability, d);
+      final rainTotal = numberAt(dailyRainTotal, d);
+      final wind = numberAt(dailyWind, d);
+      final gusts = numberAt(dailyGusts, d);
+      final uv = numberAt(dailyUv, d);
+      final sunshine = numberAt(dailySunshine, d);
+      final code = numberAt(dailyWeatherCode, d);
       if (time == null ||
           temp == null ||
-          feelsLike == null ||
+          apparentTemp == null ||
           cloudCover == null ||
-          rainProb == null ||
-          rainSum == null ||
+          rainProbability == null ||
+          rainTotal == null ||
           wind == null ||
           gusts == null ||
           uv == null ||
@@ -460,39 +440,39 @@ class OpenMeteoApi {
         continue;
       }
 
-      dailyPoints.add(ConditionPoint(
+      dailyPoints.add(ForecastPoint(
         time: time,
-        conditions: buildConditions(
-          airTempMax: temp.toDouble(),
-          feelsLike: feelsLike.toDouble(),
-          cloudCoverCurrent: cloudCover.toDouble(),
-          precipitationProbabilityMax: rainProb.toDouble(),
-          precipitationSumToday: rainSum.toDouble(),
-          precipitationSumRecent48h: recentDailySum(dailyRainSum, d) ?? 0,
-          windSpeedMax: wind.toDouble(),
-          windGustsMax: gusts.toDouble(),
-          windSpeedSustained48h: recentDailyAverage(dailyWind, d) ?? wind.toDouble(),
-          uvIndexMax: uv.toDouble(),
-          sunshineDurationHours: sunshine.toDouble() / 3600,
-          weatherCode: code.toInt(),
-          currentWeatherCode: code.toInt(),
-          waveHeight: marineAt(dailyWaveMax, d)?.toDouble(),
-          windWaveHeight: dailyMarineMax(hourlyWindWave, d),
-          swellWaveHeight: dailyMarineMax(hourlySwellHeight, d),
-          swellWavePeriod: dailyMarineMax(hourlySwellPeriod, d),
-          seaSurfaceTemperature: dailyMarineMean(hourlySeaTemp, d),
-          waveHeightMaxRecent48h: recentMarineDailyAverage(d),
-          sunrise: parseTime(dayStr(dailySunrise, d)),
-          sunset: parseTime(dayStr(dailySunset, d)),
-          windDirection10m: dayNum(dailyWindDirection, d)?.toDouble(),
-          waveDirection: marineAt(dailyWaveDirection, d)?.toDouble(),
+        weather: buildSnapshot(
+          airTemperature: temp.toDouble(),
+          apparentTemperature: apparentTemp.toDouble(),
+          cloudCover: cloudCover.toDouble(),
+          precipitationProbability: rainProbability.toDouble(),
+          precipitationTotal: rainTotal.toDouble(),
+          precipitationPast48h: recentDailySum(dailyRainTotal, d) ?? 0,
+          windSpeed: wind.toDouble(),
+          windGustSpeed: gusts.toDouble(),
+          averageWindSpeedPast48h: recentDailyAverage(dailyWind, d) ?? wind.toDouble(),
+          uvIndex: uv.toDouble(),
+          sunshineHours: sunshine.toDouble() / 3600,
+          periodWeatherCode: code.toInt(),
+          instantWeatherCode: code.toInt(),
+          waveHeight: marineValueAt(dailyWaveMax, d)?.toDouble(),
+          windWaveHeight: marineDailyMax(hourlyWindWave, d),
+          swellHeight: marineDailyMax(hourlySwellHeight, d),
+          swellPeriod: marineDailyMax(hourlySwellPeriod, d),
+          seaTemperature: marineDailyMean(hourlySeaTemp, d),
+          waveHeightPast48h: recentMarineDailyAverage(d),
+          sunrise: parseTime(stringAt(dailySunrise, d)),
+          sunset: parseTime(stringAt(dailySunset, d)),
+          windFromDirection: numberAt(dailyWindDirection, d)?.toDouble(),
+          waveFromDirection: marineValueAt(dailyWaveDirection, d)?.toDouble(),
           fetchedAt: time,
         ),
       ));
     }
 
-    return SpotConditionsBundle(
-      current: currentConditions,
+    return LocationForecast(
+      now: nowSnapshot,
       hourly: hourlyPoints,
       daily: dailyPoints,
     );

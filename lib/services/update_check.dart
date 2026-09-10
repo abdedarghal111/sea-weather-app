@@ -8,17 +8,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_version.dart';
 
 /// Resultado de mirar si hay una versión nueva publicada.
-sealed class UpdateCheck {
-  const UpdateCheck();
+sealed class UpdateStatus {
+  const UpdateStatus();
 }
 
 /// La versión instalada es la última publicada (o más nueva, si es un build
 /// local por delante de la release).
-class UpdateUpToDate extends UpdateCheck {
-  const UpdateUpToDate();
+class UpToDate extends UpdateStatus {
+  const UpToDate();
 }
 
-class UpdateAvailable extends UpdateCheck {
+class UpdateAvailable extends UpdateStatus {
   /// Versión publicada, ya sin la `v` del tag.
   final AppVersion version;
 
@@ -31,7 +31,7 @@ class UpdateAvailable extends UpdateCheck {
 /// No se pudo saber: sin red, GitHub caído, límite de peticiones alcanzado o
 /// respuesta inesperada. No se distingue el motivo porque al usuario no le
 /// cambia nada: la app funciona igual, solo no sabemos si hay versión nueva.
-class UpdateCheckFailed extends UpdateCheck {
+class UpdateCheckFailed extends UpdateStatus {
   const UpdateCheckFailed();
 }
 
@@ -39,8 +39,9 @@ class UpdateCheckFailed extends UpdateCheck {
 /// instalada.
 ///
 /// La API pública de GitHub limita a 60 peticiones por hora y por IP sin
-/// token, así que el resultado se cachea con el mismo TTL que las condiciones
-/// del tiempo: abrir la lista de calas varias veces seguidas no gasta cuota.
+/// token, así que el resultado se cachea con el mismo TTL que la previsión
+/// del tiempo: abrir la lista de localidades varias veces seguidas no gasta
+/// cuota.
 class UpdateChecker {
   static const ttl = Duration(minutes: 15);
 
@@ -58,7 +59,7 @@ class UpdateChecker {
   static Future<_LatestRelease?>? _inFlight;
 
   /// Con [forceRefresh] se ignora la caché (pull-to-refresh).
-  Future<UpdateCheck> check({bool forceRefresh = false}) async {
+  Future<UpdateStatus> check({bool forceRefresh = false}) async {
     final current = await _currentVersion();
     if (current == null) return const UpdateCheckFailed();
 
@@ -70,7 +71,7 @@ class UpdateChecker {
 
     return published > current
         ? UpdateAvailable(published, latest.releaseUrl)
-        : const UpdateUpToDate();
+        : const UpToDate();
   }
 
   Future<AppVersion?> _currentVersion() async {

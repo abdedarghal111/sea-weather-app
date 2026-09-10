@@ -35,7 +35,7 @@ String _formatTick(double value, double step) {
   return value.toStringAsFixed(2);
 }
 
-/// Gráfica de un parámetro crudo (temperatura, viento, oleaje, etc.) a lo
+/// Gráfica de una medida concreta (temperatura, viento, oleaje, etc.) a lo
 /// largo del tiempo, con rejilla y el eje Y en su unidad. Los valores nulos
 /// (p. ej. datos marinos que no llegan tan lejos como los de tiempo) se
 /// dibujan como un hueco real en la línea, no como un cero.
@@ -44,11 +44,11 @@ String _formatTick(double value, double step) {
 /// separadas del mínimo/máximo real de los datos: los propios puntos de la
 /// línea conservan su valor exacto, solo las etiquetas del eje se redondean.
 ///
-/// Igual que [RatingTimeSeriesChart]: siempre ocupa el ancho disponible y
-/// dibuja todos los puntos reales; si no caben todas las etiquetas/líneas
-/// de rejilla con una separación legible, se etiquetan menos horas (una de
-/// cada N) en vez de desbordar la pantalla y requerir scroll horizontal.
-class RawParameterTimeSeriesChart extends StatelessWidget {
+/// Igual que [RatingChart]: siempre ocupa el ancho disponible y dibuja todos
+/// los puntos reales; si no caben todas las etiquetas/líneas de rejilla con
+/// una separación legible, se etiquetan menos horas (una de cada N) en vez de
+/// desbordar la pantalla y requerir scroll horizontal.
+class MeasurementChart extends StatelessWidget {
   final String title;
   final String unit;
   final List<DateTime> times;
@@ -59,16 +59,16 @@ class RawParameterTimeSeriesChart extends StatelessWidget {
   /// punto 2 y el 3) a marcar con una línea vertical roja, típicamente la
   /// hora y minuto actuales; `null` si no aplica (el rango mostrado no
   /// incluye "ahora").
-  final double? highlightX;
+  final double? highlightPosition;
 
-  const RawParameterTimeSeriesChart({
+  const MeasurementChart({
     super.key,
     required this.title,
     required this.unit,
     required this.times,
     required this.values,
     required this.labelBuilder,
-    this.highlightX,
+    this.highlightPosition,
   });
 
   static const _pointSpacing = 44.0;
@@ -102,7 +102,7 @@ class RawParameterTimeSeriesChart extends StatelessWidget {
             height: 140,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final labelEvery = labelStep(times.length, constraints.maxWidth, _pointSpacing);
+                final labelEvery = labelInterval(times.length, constraints.maxWidth, _pointSpacing);
                 return SizedBox(
                   width: constraints.maxWidth,
                   child: LineChart(
@@ -129,11 +129,11 @@ class RawParameterTimeSeriesChart extends StatelessWidget {
                       borderData: FlBorderData(show: false),
                       extraLinesData: ExtraLinesData(
                         verticalLines: [
-                          if (highlightX != null &&
-                              highlightX! >= 0 &&
-                              highlightX! <= times.length - 1)
+                          if (highlightPosition != null &&
+                              highlightPosition! >= 0 &&
+                              highlightPosition! <= times.length - 1)
                             VerticalLine(
-                              x: highlightX!,
+                              x: highlightPosition!,
                               color: Colors.red,
                               strokeWidth: 1,
                             ),

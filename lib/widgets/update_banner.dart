@@ -5,7 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/update_check.dart';
 
-/// Aviso de versión nueva sobre la lista de calas, con enlace directo a la
+/// Aviso de versión nueva sobre la lista de localidades, con enlace directo a la
 /// release para descargarla. Mientras se comprueba, y cuando ya se está en la
 /// última versión, no ocupa nada en pantalla.
 class UpdateBanner extends StatefulWidget {
@@ -20,7 +20,7 @@ class _UpdateBannerState extends State<UpdateBanner> {
 
   /// Creado una sola vez: dentro de `build` se relanzaría en cada rebuild de
   /// la pantalla.
-  late Future<UpdateCheck> _check = _checker.check();
+  late Future<UpdateStatus> _check = _checker.check();
 
   void _retry() {
     // El cuerpo va entre llaves a propósito: con `=>` la asignación devuelve
@@ -56,7 +56,7 @@ class _UpdateBannerState extends State<UpdateBanner> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<UpdateCheck>(
+    return FutureBuilder<UpdateStatus>(
       future: _check,
       builder: (context, snapshot) {
         // Sin datos todavía no se pinta nada: un hueco que aparece y

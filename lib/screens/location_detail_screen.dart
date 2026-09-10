@@ -1,63 +1,63 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../models/beach_conditions.dart';
-import '../models/condition_point.dart';
-import '../models/spot.dart';
-import '../models/spot_conditions_bundle.dart';
-import '../services/conditions_cache.dart';
-import '../services/weather_api_error.dart';
-import '../widgets/condition_tile.dart';
+import '../models/forecast_point.dart';
+import '../models/location.dart';
+import '../models/location_forecast.dart';
+import '../models/weather_snapshot.dart';
+import '../services/api_error.dart';
+import '../services/forecast_cache.dart';
+import '../widgets/measurement_chart.dart';
+import '../widgets/measurement_tile.dart';
+import '../widgets/rating_chart.dart';
 import '../widgets/rating_gauge.dart';
-import '../widgets/rating_time_series_chart.dart';
-import '../widgets/raw_parameter_time_series_chart.dart';
 import '../widgets/wave_direction_chart.dart';
 import '../widgets/wind_direction_chart.dart';
 
-class _RawParamSpec {
+class MeasurementSpec {
   final String title;
   final String unit;
-  final double? Function(BeachConditions) value;
-  const _RawParamSpec(this.title, this.unit, this.value);
+  final double? Function(WeatherSnapshot) value;
+  const MeasurementSpec(this.title, this.unit, this.value);
 }
 
-const _rawParams = [
-  _RawParamSpec('Temp. máx.', '°C', _tempMax),
-  _RawParamSpec('Sensación', '°C', _feelsLike),
-  _RawParamSpec('Nubosidad', '%', _cloudCover),
-  _RawParamSpec('Índice UV', '', _uvIndex),
-  _RawParamSpec('Horas de sol', 'h', _sunshine),
-  _RawParamSpec('Prob. lluvia', '%', _rainProb),
-  _RawParamSpec('Lluvia', 'mm', _rainToday),
-  _RawParamSpec('Lluvia 48h', 'mm', _rain48h),
-  _RawParamSpec('Viento máx.', 'km/h', _windMax),
-  _RawParamSpec('Rachas', 'km/h', _gusts),
-  _RawParamSpec('Viento sostenido 48h', 'km/h', _windSustained48h),
-  _RawParamSpec('Altura de ola', 'm', _waveHeight),
-  _RawParamSpec('Oleaje de viento', 'm', _windWaveHeight),
-  _RawParamSpec('Oleaje máx. 48h', 'm', _waveMax48h),
-  _RawParamSpec('Temp. del agua', '°C', _seaTemp),
-  _RawParamSpec('Oleaje de fondo', 'm', _swellHeight),
-  _RawParamSpec('Periodo swell', 's', _swellPeriod),
+const _measurements = [
+  MeasurementSpec('Temp. máx.', '°C', _airTemperature),
+  MeasurementSpec('Sensación', '°C', _apparentTemperature),
+  MeasurementSpec('Nubosidad', '%', _cloudCover),
+  MeasurementSpec('Índice UV', '', _uvIndex),
+  MeasurementSpec('Horas de sol', 'h', _sunshineHours),
+  MeasurementSpec('Prob. lluvia', '%', _precipitationProbability),
+  MeasurementSpec('Lluvia', 'mm', _precipitationTotal),
+  MeasurementSpec('Lluvia 48h', 'mm', _precipitationPast48h),
+  MeasurementSpec('Viento máx.', 'km/h', _windSpeed),
+  MeasurementSpec('Rachas', 'km/h', _windGustSpeed),
+  MeasurementSpec('Viento sostenido 48h', 'km/h', _averageWindSpeedPast48h),
+  MeasurementSpec('Altura de ola', 'm', _waveHeight),
+  MeasurementSpec('Oleaje de viento', 'm', _windWaveHeight),
+  MeasurementSpec('Oleaje máx. 48h', 'm', _waveHeightPast48h),
+  MeasurementSpec('Temp. del agua', '°C', _seaTemperature),
+  MeasurementSpec('Oleaje de fondo', 'm', _swellHeight),
+  MeasurementSpec('Periodo swell', 's', _swellPeriod),
 ];
 
-double? _tempMax(BeachConditions c) => c.airTempMax;
-double? _feelsLike(BeachConditions c) => c.feelsLike;
-double? _cloudCover(BeachConditions c) => c.cloudCoverCurrent;
-double? _uvIndex(BeachConditions c) => c.uvIndexMax;
-double? _sunshine(BeachConditions c) => c.sunshineDurationHours;
-double? _rainProb(BeachConditions c) => c.precipitationProbabilityMax;
-double? _rainToday(BeachConditions c) => c.precipitationSumToday;
-double? _rain48h(BeachConditions c) => c.precipitationSumRecent48h;
-double? _windMax(BeachConditions c) => c.windSpeedMax;
-double? _gusts(BeachConditions c) => c.windGustsMax;
-double? _windSustained48h(BeachConditions c) => c.windSpeedSustained48h;
-double? _waveHeight(BeachConditions c) => c.waveHeight;
-double? _windWaveHeight(BeachConditions c) => c.windWaveHeight;
-double? _waveMax48h(BeachConditions c) => c.waveHeightMaxRecent48h;
-double? _seaTemp(BeachConditions c) => c.seaSurfaceTemperature;
-double? _swellHeight(BeachConditions c) => c.swellWaveHeight;
-double? _swellPeriod(BeachConditions c) => c.swellWavePeriod;
+double? _airTemperature(WeatherSnapshot w) => w.airTemperature;
+double? _apparentTemperature(WeatherSnapshot w) => w.apparentTemperature;
+double? _cloudCover(WeatherSnapshot w) => w.cloudCover;
+double? _uvIndex(WeatherSnapshot w) => w.uvIndex;
+double? _sunshineHours(WeatherSnapshot w) => w.sunshineHours;
+double? _precipitationProbability(WeatherSnapshot w) => w.precipitationProbability;
+double? _precipitationTotal(WeatherSnapshot w) => w.precipitationTotal;
+double? _precipitationPast48h(WeatherSnapshot w) => w.precipitationPast48h;
+double? _windSpeed(WeatherSnapshot w) => w.windSpeed;
+double? _windGustSpeed(WeatherSnapshot w) => w.windGustSpeed;
+double? _averageWindSpeedPast48h(WeatherSnapshot w) => w.averageWindSpeedPast48h;
+double? _waveHeight(WeatherSnapshot w) => w.waveHeight;
+double? _windWaveHeight(WeatherSnapshot w) => w.windWaveHeight;
+double? _waveHeightPast48h(WeatherSnapshot w) => w.waveHeightPast48h;
+double? _seaTemperature(WeatherSnapshot w) => w.seaTemperature;
+double? _swellHeight(WeatherSnapshot w) => w.swellHeight;
+double? _swellPeriod(WeatherSnapshot w) => w.swellPeriod;
 
 const _weekdayNames = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
 const _monthNames = [
@@ -70,11 +70,12 @@ String _hourLabel(DateTime time) => '${time.hour}h';
 String _timeLabel(DateTime time) =>
     '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 
-/// Rango horario mostrado en el panel "Por horas".
-enum HourlyRange { morning, full }
+/// Franja de horas mostrada en el panel "Por horas": solo las horas de luz o
+/// el día entero.
+enum HourlyWindow { daylight, fullDay }
 
-const _morningStartHour = 8;
-const _morningEndHour = 22;
+const _daylightStartHour = 8;
+const _daylightEndHour = 22;
 
 String _dayLabel(DateTime time) =>
     '${_weekdayNames[time.weekday - 1]} ${time.day}';
@@ -91,33 +92,33 @@ String _hourlyDayHeaderLabel(DateTime date) {
   return '${_weekdayNames[date.weekday - 1]} ${date.day} ${_monthNames[date.month - 1]}';
 }
 
-class SpotDetailScreen extends StatefulWidget {
-  final Spot spot;
+class LocationDetailScreen extends StatefulWidget {
+  final Location location;
 
-  const SpotDetailScreen({super.key, required this.spot});
+  const LocationDetailScreen({super.key, required this.location});
 
   @override
-  State<SpotDetailScreen> createState() => _SpotDetailScreenState();
+  State<LocationDetailScreen> createState() => _LocationDetailScreenState();
 }
 
-class _SpotDetailScreenState extends State<SpotDetailScreen> {
-  final _cache = ConditionsCache();
-  Future<SpotConditionsBundle>? _future;
+class _LocationDetailScreenState extends State<LocationDetailScreen> {
+  final _cache = ForecastCache();
+  Future<LocationForecast>? _forecast;
   int _hourlyDayOffset = 0;
-  HourlyRange _hourlyRange = HourlyRange.morning;
+  HourlyWindow _hourlyWindow = HourlyWindow.daylight;
 
   @override
   void initState() {
     super.initState();
-    _future = _cache.getConditions(widget.spot);
+    _forecast = _cache.forecastFor(widget.location);
   }
 
   Future<void> _refresh({bool force = false}) async {
     setState(() {
-      _future = _cache.getConditions(widget.spot, forceRefresh: force);
+      _forecast = _cache.forecastFor(widget.location, forceRefresh: force);
     });
     try {
-      await _future;
+      await _forecast;
     } catch (_) {
       // El FutureBuilder ya muestra el estado de error; aquí solo evitamos
       // que quede como excepción asíncrona sin capturar.
@@ -130,48 +131,48 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     return 'actualizado hace $minutes min';
   }
 
-  /// Días completos que hay disponibles en [SpotConditionsBundle.hourly].
-  int _hourlyDayCount(SpotConditionsBundle bundle) => bundle.hourly.length ~/ 24;
+  /// Días completos que hay disponibles en [LocationForecast.hourly].
+  int _hourlyDayCount(LocationForecast forecast) => forecast.hourly.length ~/ 24;
 
   /// [_hourlyDayOffset] recortado al rango de días realmente disponible.
-  int _clampedHourlyOffset(SpotConditionsBundle bundle) {
-    final dayCount = _hourlyDayCount(bundle);
+  int _clampedHourlyOffset(LocationForecast forecast) {
+    final dayCount = _hourlyDayCount(forecast);
     return _hourlyDayOffset.clamp(0, dayCount > 0 ? dayCount - 1 : 0);
   }
 
-  List<ConditionPoint> _hourlySlice(SpotConditionsBundle bundle, int offset) {
-    final day = bundle.hourly.skip(offset * 24).take(24).toList();
-    if (_hourlyRange == HourlyRange.full) return day;
+  List<ForecastPoint> _hourlySlice(LocationForecast forecast, int offset) {
+    final day = forecast.hourly.skip(offset * 24).take(24).toList();
+    if (_hourlyWindow == HourlyWindow.fullDay) return day;
     return day
         .where((p) =>
-            p.time.hour >= _morningStartHour && p.time.hour <= _morningEndHour)
+            p.time.hour >= _daylightStartHour && p.time.hour <= _daylightEndHour)
         .toList();
   }
 
-  Widget _buildHourlyRangeSelector() {
+  Widget _buildHourlyWindowSelector() {
     return Center(
-      child: SegmentedButton<HourlyRange>(
+      child: SegmentedButton<HourlyWindow>(
         segments: const [
           ButtonSegment(
-            value: HourlyRange.morning,
-            label: Text('Mañana'),
+            value: HourlyWindow.daylight,
+            label: Text('Día'),
             icon: FaIcon(FontAwesomeIcons.sun, size: 14),
           ),
           ButtonSegment(
-            value: HourlyRange.full,
+            value: HourlyWindow.fullDay,
             label: Text('24 horas'),
             icon: FaIcon(FontAwesomeIcons.clock, size: 14),
           ),
         ],
-        selected: {_hourlyRange},
+        selected: {_hourlyWindow},
         onSelectionChanged: (selection) =>
-            setState(() => _hourlyRange = selection.first),
+            setState(() => _hourlyWindow = selection.first),
       ),
     );
   }
 
-  Widget _buildHourlyDaySelector(SpotConditionsBundle bundle, int offset, int dayCount) {
-    final headerDate = dayCount > 0 ? bundle.hourly[offset * 24].time : DateTime.now();
+  Widget _buildHourlyDaySelector(LocationForecast forecast, int offset, int dayCount) {
+    final headerDate = dayCount > 0 ? forecast.hourly[offset * 24].time : DateTime.now();
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -202,8 +203,8 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
   /// Posición fraccionaria (p. ej. 2.5 = a mitad de camino entre el punto 2
   /// y el 3) del instante actual dentro de [points], o `null` si "ahora"
   /// cae fuera del rango mostrado (se está viendo otro día, o la hora
-  /// actual queda fuera del filtro "Mañana").
-  double? _nowPosition(List<ConditionPoint> points) {
+  /// actual queda fuera de la franja de horas de luz).
+  double? _nowMarkerPosition(List<ForecastPoint> points) {
     if (points.isEmpty) return null;
     final now = DateTime.now();
     if (now.isBefore(points.first.time) || now.isAfter(points.last.time)) {
@@ -222,10 +223,10 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
   }
 
   /// Número de tarjetas que produce [_buildSeriesItem] para una serie no
-  /// vacía: 5 gráficas de valoración + 1 de dirección de viento + 1 por cada
-  /// [_RawParamSpec] de [_rawParams].
-  int _seriesItemCount(List<ConditionPoint> points) =>
-      points.isEmpty ? 1 : 7 + _rawParams.length;
+  /// vacía: 5 gráficas de valoración + 1 de dirección de viento + 1 de
+  /// dirección de las olas + 1 por cada [MeasurementSpec] de [_measurements].
+  int _seriesItemCount(List<ForecastPoint> points) =>
+      points.isEmpty ? 1 : 7 + _measurements.length;
 
   /// Construye bajo demanda la tarjeta `index` de una sección de serie
   /// temporal (a partir de [points]/[times] ya calculados una única vez por
@@ -234,11 +235,11 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
   /// se llaman los métodos rateX(), que no son gratis) las que realmente
   /// entran en pantalla o en su caché de scroll.
   Widget _buildSeriesItem(
-    List<ConditionPoint> points,
+    List<ForecastPoint> points,
     List<DateTime> times,
     String Function(DateTime) labelBuilder,
     int index, {
-    double? highlightX,
+    double? highlightPosition,
   }) {
     if (points.isEmpty) {
       return const Text('Sin datos disponibles.');
@@ -246,79 +247,74 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
 
     switch (index) {
       case 0:
-        return RatingTimeSeriesChart(
+        return RatingChart(
           title: waterClaritySeriesTitle,
           times: times,
-          scores: points
-              .map((p) => p.conditions.rateWaterClarity().score)
-              .toList(),
+          scores: points.map((p) => p.weather.rateWaterClarity().score).toList(),
           labelBuilder: labelBuilder,
-          highlightX: highlightX,
+          highlightPosition: highlightPosition,
         );
       case 1:
-        return RatingTimeSeriesChart(
-          title: playaRemovidaSeriesTitle,
+        return RatingChart(
+          title: shoreDisturbanceSeriesTitle,
           times: times,
-          scores: points
-              .map((p) => p.conditions.ratePlayaRemovida().score)
-              .toList(),
+          scores: points.map((p) => p.weather.rateShoreDisturbance().score).toList(),
           labelBuilder: labelBuilder,
-          highlightX: highlightX,
+          highlightPosition: highlightPosition,
         );
       case 2:
-        return RatingTimeSeriesChart(
+        return RatingChart(
           title: 'Surf',
           times: times,
-          scores: points.map((p) => p.conditions.rateSurf().score).toList(),
+          scores: points.map((p) => p.weather.rateSurf().score).toList(),
           labelBuilder: labelBuilder,
-          highlightX: highlightX,
+          highlightPosition: highlightPosition,
         );
       case 3:
-        return RatingTimeSeriesChart(
+        return RatingChart(
           title: 'Sol',
           times: times,
-          scores: points.map((p) => p.conditions.rateSun().score).toList(),
+          scores: points.map((p) => p.weather.rateSun().score).toList(),
           labelBuilder: labelBuilder,
-          highlightX: highlightX,
+          highlightPosition: highlightPosition,
         );
       case 4:
-        return RatingTimeSeriesChart(
+        return RatingChart(
           title: rainSeriesTitle,
           times: times,
-          scores: points.map((p) => p.conditions.rateRain().score).toList(),
+          scores: points.map((p) => p.weather.rateRain().score).toList(),
           labelBuilder: labelBuilder,
-          highlightX: highlightX,
+          highlightPosition: highlightPosition,
         );
       case 5:
         return WindDirectionChart(
           times: times,
-          directions:
-              points.map((p) => p.conditions.windDirection10m).toList(),
+          directions: points.map((p) => p.weather.windFromDirection).toList(),
           labelBuilder: labelBuilder,
-          highlightX: highlightX,
+          highlightPosition: highlightPosition,
         );
       case 6:
         return WaveDirectionChart(
           times: times,
-          directions: points.map((p) => p.conditions.waveDirection).toList(),
+          directions: points.map((p) => p.weather.waveFromDirection).toList(),
           labelBuilder: labelBuilder,
-          highlightX: highlightX,
+          highlightPosition: highlightPosition,
         );
       default:
-        final spec = _rawParams[index - 7];
-        return RawParameterTimeSeriesChart(
+        final spec = _measurements[index - 7];
+        return MeasurementChart(
           title: spec.title,
           unit: spec.unit,
           times: times,
-          values: points.map((p) => spec.value(p.conditions)).toList(),
+          values: points.map((p) => spec.value(p.weather)).toList(),
           labelBuilder: labelBuilder,
-          highlightX: highlightX,
+          highlightPosition: highlightPosition,
         );
     }
   }
 
   Widget _errorView(Object? error) {
-    final failure = error is WeatherApiException ? error : null;
+    final failure = error is ApiException ? error : null;
     return ListView(
       children: [
         const SizedBox(height: 80),
@@ -349,7 +345,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.spot.name),
+          title: Text(widget.location.name),
           bottom: const TabBar(
             tabs: [
               Tab(icon: FaIcon(FontAwesomeIcons.solidClock), text: 'Ahora'),
@@ -360,8 +356,8 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
             ],
           ),
         ),
-        body: FutureBuilder<SpotConditionsBundle>(
-          future: _future,
+        body: FutureBuilder<LocationForecast>(
+          future: _forecast,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -372,14 +368,14 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                   child: _errorView(snapshot.error));
             }
 
-            final bundle = snapshot.data!;
-            final conditions = bundle.current;
-            final hourlyDayCount = _hourlyDayCount(bundle);
-            final hourlyOffset = _clampedHourlyOffset(bundle);
-            final hourlyPoints = _hourlySlice(bundle, hourlyOffset);
+            final forecast = snapshot.data!;
+            final weatherNow = forecast.now;
+            final hourlyDayCount = _hourlyDayCount(forecast);
+            final hourlyOffset = _clampedHourlyOffset(forecast);
+            final hourlyPoints = _hourlySlice(forecast, hourlyOffset);
             final hourlyTimes = hourlyPoints.map((p) => p.time).toList();
-            final hourlyHighlight = _nowPosition(hourlyPoints);
-            final dailyTimes = bundle.daily.map((p) => p.time).toList();
+            final hourlyHighlight = _nowMarkerPosition(hourlyPoints);
+            final dailyTimes = forecast.daily.map((p) => p.time).toList();
 
             // Las dos pestañas de serie temporal usan ListView.builder (no
             // ListView(children: [...])) para que las ~23 gráficas de cada
@@ -393,7 +389,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
               children: [
                 RefreshIndicator(
                   onRefresh: () => _refresh(force: true),
-                  child: _buildNowTab(conditions),
+                  child: _buildNowTab(weatherNow),
                 ),
                 RefreshIndicator(
                   onRefresh: () => _refresh(force: true),
@@ -405,11 +401,11 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                       switch (index) {
                         case 0:
                           return _buildHourlyDaySelector(
-                              bundle, hourlyOffset, hourlyDayCount);
+                              forecast, hourlyOffset, hourlyDayCount);
                         case 1:
                           return const SizedBox(height: 8);
                         case 2:
-                          return _buildHourlyRangeSelector();
+                          return _buildHourlyWindowSelector();
                         case 3:
                           return const SizedBox(height: 12);
                         default:
@@ -418,7 +414,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                             hourlyTimes,
                             _hourLabel,
                             index - hourlyHeaderCount,
-                            highlightX: hourlyHighlight,
+                            highlightPosition: hourlyHighlight,
                           );
                       }
                     },
@@ -428,9 +424,9 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                   onRefresh: () => _refresh(force: true),
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    itemCount: _seriesItemCount(bundle.daily),
+                    itemCount: _seriesItemCount(forecast.daily),
                     itemBuilder: (context, index) => _buildSeriesItem(
-                      bundle.daily,
+                      forecast.daily,
                       dailyTimes,
                       _dayLabel,
                       index,
@@ -445,31 +441,31 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     );
   }
 
-  Widget _rainGauge(BeachRating rating) =>
+  Widget _rainGauge(Rating rating) =>
       RatingGauge(title: rating.level.rainTitle, rating: rating);
 
-  Widget _waterClarityGauge(BeachRating rating) =>
+  Widget _waterClarityGauge(Rating rating) =>
       RatingGauge(title: rating.level.waterClarityTitle, rating: rating);
 
-  Widget _playaRemovidaGauge(BeachRating rating) =>
-      RatingGauge(title: rating.level.playaRemovidaTitle, rating: rating);
+  Widget _shoreDisturbanceGauge(Rating rating) =>
+      RatingGauge(title: rating.level.shoreDisturbanceTitle, rating: rating);
 
-  Widget _buildNowTab(BeachConditions conditions) {
+  Widget _buildNowTab(WeatherSnapshot weather) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(_minutesAgoLabel(conditions.fetchedAt),
+        Text(_minutesAgoLabel(weather.fetchedAt),
             style: Theme.of(context).textTheme.bodySmall),
         const SizedBox(height: 12),
-        _waterClarityGauge(conditions.rateWaterClarity()),
+        _waterClarityGauge(weather.rateWaterClarity()),
         const SizedBox(height: 16),
-        _playaRemovidaGauge(conditions.ratePlayaRemovida()),
+        _shoreDisturbanceGauge(weather.rateShoreDisturbance()),
         const SizedBox(height: 16),
-        RatingGauge(title: 'Surf', rating: conditions.rateSurf()),
+        RatingGauge(title: 'Surf', rating: weather.rateSurf()),
         const SizedBox(height: 16),
-        RatingGauge(title: 'Sol', rating: conditions.rateSun()),
+        RatingGauge(title: 'Sol', rating: weather.rateSun()),
         const SizedBox(height: 16),
-        _rainGauge(conditions.rateRain()),
+        _rainGauge(weather.rateRain()),
         const SizedBox(height: 16),
         Text('Todos los datos', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
@@ -483,114 +479,112 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
             childAspectRatio: 0.9,
           ),
           children: [
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.temperatureHalf,
               label: 'Temp. máx.',
-              value: '${conditions.airTempMax.round()}°C',
+              value: '${weather.airTemperature.round()}°C',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.temperatureThreeQuarters,
               label: 'Sensación',
-              value: '${conditions.feelsLike.round()}°C',
+              value: '${weather.apparentTemperature.round()}°C',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.cloud,
               label: 'Nubosidad',
-              value: '${conditions.cloudCoverCurrent.round()}%',
+              value: '${weather.cloudCover.round()}%',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.sun,
               label: 'Índice UV',
-              value: conditions.uvIndexMax.round().toString(),
+              value: weather.uvIndex.round().toString(),
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.solarPanel,
               label: 'Horas de sol',
-              value: '${conditions.sunshineDurationHours.round()} h',
+              value: '${weather.sunshineHours.round()} h',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.droplet,
               label: 'Prob. lluvia hoy',
-              value: '${conditions.precipitationProbabilityMax.round()}%',
+              value: '${weather.precipitationProbability.round()}%',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.cloudRain,
               label: 'Lluvia hoy',
-              value:
-                  '${conditions.precipitationSumToday.toStringAsFixed(1)} mm',
+              value: '${weather.precipitationTotal.toStringAsFixed(1)} mm',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.cloudShowersHeavy,
               label: 'Lluvia 48h',
-              value:
-                  '${conditions.precipitationSumRecent48h.toStringAsFixed(1)} mm',
+              value: '${weather.precipitationPast48h.toStringAsFixed(1)} mm',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.wind,
               label: 'Viento máx.',
-              value: '${conditions.windSpeedMax.round()} km/h',
+              value: '${weather.windSpeed.round()} km/h',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.fan,
               label: 'Rachas',
-              value: '${conditions.windGustsMax.round()} km/h',
+              value: '${weather.windGustSpeed.round()} km/h',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.calendarWeek,
               label: 'Viento sostenido 48h',
-              value: '${conditions.windSpeedSustained48h.round()} km/h',
+              value: '${weather.averageWindSpeedPast48h.round()} km/h',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.water,
               label: 'Altura de ola',
-              value: conditions.waveHeight != null
-                  ? '${conditions.waveHeight!.toStringAsFixed(1)} m'
+              value: weather.waveHeight != null
+                  ? '${weather.waveHeight!.toStringAsFixed(1)} m'
                   : '—',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.waterLadder,
               label: 'Oleaje de viento',
-              value: conditions.windWaveHeight != null
-                  ? '${conditions.windWaveHeight!.toStringAsFixed(1)} m'
+              value: weather.windWaveHeight != null
+                  ? '${weather.windWaveHeight!.toStringAsFixed(1)} m'
                   : '—',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.chartLine,
               label: 'Oleaje máx. 48h',
-              value: conditions.waveHeightMaxRecent48h != null
-                  ? '${conditions.waveHeightMaxRecent48h!.toStringAsFixed(1)} m'
+              value: weather.waveHeightPast48h != null
+                  ? '${weather.waveHeightPast48h!.toStringAsFixed(1)} m'
                   : '—',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.personSwimming,
               label: 'Temp. del agua',
-              value: conditions.seaSurfaceTemperature != null
-                  ? '${conditions.seaSurfaceTemperature!.round()}°C'
+              value: weather.seaTemperature != null
+                  ? '${weather.seaTemperature!.round()}°C'
                   : '—',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.waveSquare,
               label: 'Oleaje de fondo',
-              value: conditions.swellWaveHeight != null
-                  ? '${conditions.swellWaveHeight!.toStringAsFixed(1)} m'
+              value: weather.swellHeight != null
+                  ? '${weather.swellHeight!.toStringAsFixed(1)} m'
                   : '—',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.stopwatch,
               label: 'Periodo swell',
-              value: conditions.swellWavePeriod != null
-                  ? '${conditions.swellWavePeriod!.round()} s'
+              value: weather.swellPeriod != null
+                  ? '${weather.swellPeriod!.round()} s'
                   : '—',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.solidSun,
               label: 'Amanecer',
-              value: conditions.sunrise != null ? _timeLabel(conditions.sunrise!) : '—',
+              value: weather.sunrise != null ? _timeLabel(weather.sunrise!) : '—',
             ),
-            ConditionTile(
+            MeasurementTile(
               icon: FontAwesomeIcons.solidMoon,
               label: 'Atardecer',
-              value: conditions.sunset != null ? _timeLabel(conditions.sunset!) : '—',
+              value: weather.sunset != null ? _timeLabel(weather.sunset!) : '—',
             ),
           ],
         ),

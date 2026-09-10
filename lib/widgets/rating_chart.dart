@@ -11,7 +11,7 @@ import 'time_series_sampling.dart';
 /// forma completa de los datos); si no caben todas las etiquetas/líneas de
 /// rejilla con una separación legible, se etiquetan menos horas (una de
 /// cada N) en vez de desbordar la pantalla y requerir scroll horizontal.
-class RatingTimeSeriesChart extends StatelessWidget {
+class RatingChart extends StatelessWidget {
   final String title;
   final List<DateTime> times;
   final List<double> scores;
@@ -21,15 +21,15 @@ class RatingTimeSeriesChart extends StatelessWidget {
   /// punto 2 y el 3) a marcar con una línea vertical roja, típicamente la
   /// hora y minuto actuales; `null` si no aplica (el rango mostrado no
   /// incluye "ahora").
-  final double? highlightX;
+  final double? highlightPosition;
 
-  const RatingTimeSeriesChart({
+  const RatingChart({
     super.key,
     required this.title,
     required this.times,
     required this.scores,
     required this.labelBuilder,
-    this.highlightX,
+    this.highlightPosition,
   });
 
   static const _bandColors = [
@@ -59,7 +59,7 @@ class RatingTimeSeriesChart extends StatelessWidget {
             height: 150,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final step = labelStep(times.length, constraints.maxWidth, _pointSpacing);
+                final labelEvery = labelInterval(times.length, constraints.maxWidth, _pointSpacing);
                 return SizedBox(
                   width: constraints.maxWidth,
                   child: LineChart(
@@ -80,7 +80,7 @@ class RatingTimeSeriesChart extends StatelessWidget {
                       ),
                       gridData: FlGridData(
                         drawVerticalLine: true,
-                        verticalInterval: step.toDouble(),
+                        verticalInterval: labelEvery.toDouble(),
                         horizontalInterval: 0.2,
                         getDrawingHorizontalLine: (value) => const FlLine(
                           color: Colors.black,
@@ -96,11 +96,11 @@ class RatingTimeSeriesChart extends StatelessWidget {
                       borderData: FlBorderData(show: false),
                       extraLinesData: ExtraLinesData(
                         verticalLines: [
-                          if (highlightX != null &&
-                              highlightX! >= 0 &&
-                              highlightX! <= times.length - 1)
+                          if (highlightPosition != null &&
+                              highlightPosition! >= 0 &&
+                              highlightPosition! <= times.length - 1)
                             VerticalLine(
-                              x: highlightX!,
+                              x: highlightPosition!,
                               color: Colors.red,
                               strokeWidth: 1,
                             ),
@@ -114,7 +114,7 @@ class RatingTimeSeriesChart extends StatelessWidget {
                           sideTitles: SideTitles(
                             showTitles: true,
                             reservedSize: 24,
-                            interval: step.toDouble(),
+                            interval: labelEvery.toDouble(),
                             getTitlesWidget: (value, meta) {
                               final index = value.round();
                               if (index < 0 || index >= times.length) {
