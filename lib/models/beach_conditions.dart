@@ -124,6 +124,9 @@ class BeachConditions {
   // la flecha de WindDirectionChart, que la voltea 180° para mostrar hacia
   // dónde se dirige el viento en vez de de dónde viene.
   final double? windDirection10m;
+  // Grados de los que vienen las olas, misma convención que el viento (la
+  // Marine API también reporta el origen, no el destino).
+  final double? waveDirection;
   final DateTime fetchedAt;
 
   const BeachConditions({
@@ -149,6 +152,7 @@ class BeachConditions {
     this.sunrise,
     this.sunset,
     this.windDirection10m,
+    this.waveDirection,
     required this.fetchedAt,
   });
 
@@ -175,6 +179,7 @@ class BeachConditions {
         'sunrise': sunrise?.toIso8601String(),
         'sunset': sunset?.toIso8601String(),
         'windDirection10m': windDirection10m,
+        'waveDirection': waveDirection,
         'fetchedAt': fetchedAt.toIso8601String(),
       };
 
@@ -201,6 +206,7 @@ class BeachConditions {
         sunrise: (json['sunrise'] as String?) != null ? DateTime.parse(json['sunrise'] as String) : null,
         sunset: (json['sunset'] as String?) != null ? DateTime.parse(json['sunset'] as String) : null,
         windDirection10m: (json['windDirection10m'] as num?)?.toDouble(),
+        waveDirection: (json['waveDirection'] as num?)?.toDouble(),
         fetchedAt: DateTime.parse(json['fetchedAt'] as String),
       );
 
