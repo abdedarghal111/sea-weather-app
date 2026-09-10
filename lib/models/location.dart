@@ -15,6 +15,16 @@ class Location {
 
   String get coordinatesKey => '${latitude}_$longitude';
 
+  String get coordinatesLabel =>
+      '${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
+
+  Location copyWith({String? name}) => Location(
+        id: id,
+        name: name ?? this.name,
+        latitude: latitude,
+        longitude: longitude,
+      );
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,

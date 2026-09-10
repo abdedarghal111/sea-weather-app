@@ -32,6 +32,18 @@ class LocationsRepository {
     await _save(locations);
   }
 
+  Future<void> renameLocation(String id, String name) async {
+    final locations = await loadLocations();
+    final index = locations.indexWhere((l) => l.id == id);
+    if (index == -1) return;
+    locations[index] = locations[index].copyWith(name: name);
+    await _save(locations);
+  }
+
+  // El orden de la lista guardada es el que ve el usuario en la pantalla
+  // principal, así que reordenarla es todo lo que hay que persistir.
+  Future<void> saveOrder(List<Location> locations) => _save(locations);
+
   Future<void> _save(List<Location> locations) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = jsonEncode(locations.map((l) => l.toJson()).toList());
