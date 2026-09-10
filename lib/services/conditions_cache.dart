@@ -24,6 +24,12 @@ String _encodeBundle(SpotConditionsBundle bundle) => jsonEncode(bundle.toJson())
 class ConditionsCache {
   static const ttl = Duration(minutes: 15);
 
+  /// Peticiones en curso por spot, compartidas entre pantallas. Sin esto, dos
+  /// reconstrucciones seguidas de la lista lanzan la misma consulta varias
+  /// veces y la API responde 429 "too many concurrent requests" a las
+  /// sobrantes.
+  static final _inFlight = <String, Future<SpotConditionsBundle>>{};
+
   String _key(String cacheKey) => 'conditions_cache_$cacheKey';
 
   Future<SpotConditionsBundle?> _readStored(String cacheKey) async {
@@ -55,6 +61,19 @@ class ConditionsCache {
       }
     }
 
+    final pending = _inFlight[spot.cacheKey];
+    if (pending != null) return pending;
+
+    final request = _fetchAndStore(spot);
+    _inFlight[spot.cacheKey] = request;
+    try {
+      return await request;
+    } finally {
+      _inFlight.remove(spot.cacheKey);
+    }
+  }
+
+  Future<SpotConditionsBundle> _fetchAndStore(Spot spot) async {
     try {
       final fresh = await OpenMeteoApi.fetchConditionsBundle(spot);
       await _store(spot.cacheKey, fresh);

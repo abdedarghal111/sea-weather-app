@@ -6,6 +6,7 @@ import '../models/condition_point.dart';
 import '../models/spot.dart';
 import '../models/spot_conditions_bundle.dart';
 import '../services/conditions_cache.dart';
+import '../services/weather_api_error.dart';
 import '../widgets/condition_tile.dart';
 import '../widgets/rating_gauge.dart';
 import '../widgets/rating_time_series_chart.dart';
@@ -308,16 +309,31 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     }
   }
 
-  Widget _errorView() => ListView(
-        children: [
-          const SizedBox(height: 80),
-          const FaIcon(FontAwesomeIcons.triangleExclamation, size: 48),
-          const SizedBox(height: 12),
-          const Center(
-              child: Text(
-                  'No se pudo obtener el tiempo. Desliza para reintentar.')),
+  Widget _errorView(Object? error) {
+    final failure = error is WeatherApiException ? error : null;
+    return ListView(
+      children: [
+        const SizedBox(height: 80),
+        const FaIcon(FontAwesomeIcons.triangleExclamation, size: 48),
+        const SizedBox(height: 12),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              failure?.message ?? 'No se pudo obtener el tiempo.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        // Reintentar solo se sugiere cuando puede servir de algo: unas
+        // coordenadas inválidas no se arreglan deslizando.
+        if (failure == null || failure.isRetryable) ...[
+          const SizedBox(height: 8),
+          const Center(child: Text('Desliza para reintentar.')),
         ],
-      );
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -344,7 +360,8 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
             }
             if (snapshot.hasError) {
               return RefreshIndicator(
-                  onRefresh: () => _refresh(force: true), child: _errorView());
+                  onRefresh: () => _refresh(force: true),
+                  child: _errorView(snapshot.error));
             }
 
             final bundle = snapshot.data!;

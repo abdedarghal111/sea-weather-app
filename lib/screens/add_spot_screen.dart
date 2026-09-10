@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import '../models/spot.dart';
 import '../services/geocoding_api.dart';
 import '../services/spots_repository.dart';
+import '../services/weather_api_error.dart';
 
 class AddSpotScreen extends StatefulWidget {
   const AddSpotScreen({super.key});
@@ -47,7 +48,18 @@ class _AddSpotScreenState extends State<AddSpotScreen> with SingleTickerProvider
     });
     try {
       final results = await GeocodingApi.search(_searchController.text);
-      setState(() => _results = results);
+      setState(() {
+        _results = results;
+        // El buscador solo indexa poblaciones: playas, lagos y embalses no
+        // aparecen por nombre, y sin este aviso la lista se quedaba vacía sin
+        // explicar por qué.
+        _searchError = results.isEmpty && _searchController.text.trim().isNotEmpty
+            ? 'Sin resultados. El buscador solo encuentra pueblos y ciudades: '
+                'para una playa, cala, lago o embalse, usa la pestaña Mapa.'
+            : null;
+      });
+    } on WeatherApiException catch (error) {
+      setState(() => _searchError = error.message);
     } catch (_) {
       setState(() => _searchError = 'No se pudo buscar. Comprueba tu conexión.');
     } finally {
