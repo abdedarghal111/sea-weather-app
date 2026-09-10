@@ -1,16 +1,16 @@
+// Serie temporal de direcciones dibujada como una fila de flechas.
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import 'time_series_sampling.dart';
 
-/// Fila de flechas mostrando una dirección por hora o por día, en vez de un
-/// valor numérico: el usuario compara la flecha con la orientación de su
-/// playa y decide él mismo, sin que la app necesite conocer esa orientación.
+/// Fila de flechas con una dirección por hora o por día, para que el usuario
+/// la compare con la orientación de su playa.
 ///
-/// [directions] son grados de los que VIENE el fenómeno (convención
-/// meteorológica, 0°/360° = norte, que es la que usan tanto el viento como el
-/// oleaje en Open-Meteo); cada flecha se dibuja rotada 180° para apuntar
+/// [directions] son grados de los que viene el fenómeno (convención
+/// meteorológica, 0°/360° = norte); cada flecha se rota 180° para apuntar
 /// hacia dónde se dirige.
 class DirectionArrowsChart extends StatelessWidget {
   final String title;
@@ -18,7 +18,7 @@ class DirectionArrowsChart extends StatelessWidget {
   final List<DateTime> times;
   final List<double?> directions;
   final String Function(DateTime time) labelBuilder;
-  final double? highlightX;
+  final double? highlightPosition;
 
   const DirectionArrowsChart({
     super.key,
@@ -27,7 +27,7 @@ class DirectionArrowsChart extends StatelessWidget {
     required this.times,
     required this.directions,
     required this.labelBuilder,
-    this.highlightX,
+    this.highlightPosition,
   });
 
   static const _pointSpacing = 32.0;
@@ -41,7 +41,7 @@ class DirectionArrowsChart extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final highlightIndex = highlightX?.round();
+    final highlightIndex = highlightPosition?.round();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
@@ -62,7 +62,7 @@ class DirectionArrowsChart extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               final labelEvery =
-                  labelStep(times.length, constraints.maxWidth, _pointSpacing);
+                  labelInterval(times.length, constraints.maxWidth, _pointSpacing);
               return SizedBox(
                 width: constraints.maxWidth,
                 height: 60,

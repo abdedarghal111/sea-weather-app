@@ -1,3 +1,5 @@
+// Comprobación de si hay una versión más nueva publicada en GitHub.
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -8,39 +10,37 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_version.dart';
 
 /// Resultado de mirar si hay una versión nueva publicada.
-sealed class UpdateCheck {
-  const UpdateCheck();
+sealed class UpdateStatus {
+  const UpdateStatus();
 }
 
-/// La versión instalada es la última publicada (o más nueva, si es un build
-/// local por delante de la release).
-class UpdateUpToDate extends UpdateCheck {
-  const UpdateUpToDate();
+/// La versión instalada es la última publicada, o una más nueva todavía sin
+/// publicar.
+class UpToDate extends UpdateStatus {
+  const UpToDate();
 }
 
-class UpdateAvailable extends UpdateCheck {
+class UpdateAvailable extends UpdateStatus {
   /// Versión publicada, ya sin la `v` del tag.
   final AppVersion version;
 
-  /// Página de la release en GitHub, con los ficheros de cada plataforma.
+  /// Página de la release en GitHub, con las descargas de cada plataforma.
   final String releaseUrl;
 
   const UpdateAvailable(this.version, this.releaseUrl);
 }
 
-/// No se pudo saber: sin red, GitHub caído, límite de peticiones alcanzado o
-/// respuesta inesperada. No se distingue el motivo porque al usuario no le
-/// cambia nada: la app funciona igual, solo no sabemos si hay versión nueva.
-class UpdateCheckFailed extends UpdateCheck {
+/// No se pudo comprobar: sin red, GitHub caído, cuota agotada o respuesta
+/// inesperada. El motivo no se distingue porque no cambia nada para el
+/// usuario.
+class UpdateCheckFailed extends UpdateStatus {
   const UpdateCheckFailed();
 }
 
-/// Consulta la última release publicada y la compara con la versión
-/// instalada.
+/// Compara la última release publicada con la versión instalada.
 ///
-/// La API pública de GitHub limita a 60 peticiones por hora y por IP sin
-/// token, así que el resultado se cachea con el mismo TTL que las condiciones
-/// del tiempo: abrir la lista de calas varias veces seguidas no gasta cuota.
+/// La API pública de GitHub limita a 60 peticiones por hora e IP, así que el
+/// resultado se cachea durante [ttl].
 class UpdateChecker {
   static const ttl = Duration(minutes: 15);
 
@@ -53,12 +53,12 @@ class UpdateChecker {
     '/repos/$_repository/releases/latest',
   );
 
-  /// Consulta en curso, compartida entre pantallas: sin esto, dos
-  /// reconstrucciones seguidas gastan dos peticiones de la cuota.
+  /// Consulta en curso, compartida entre pantallas: sin esto, dos rebuilds
+  /// seguidos gastan dos peticiones de la cuota.
   static Future<_LatestRelease?>? _inFlight;
 
   /// Con [forceRefresh] se ignora la caché (pull-to-refresh).
-  Future<UpdateCheck> check({bool forceRefresh = false}) async {
+  Future<UpdateStatus> check({bool forceRefresh = false}) async {
     final current = await _currentVersion();
     if (current == null) return const UpdateCheckFailed();
 
@@ -70,7 +70,7 @@ class UpdateChecker {
 
     return published > current
         ? UpdateAvailable(published, latest.releaseUrl)
-        : const UpdateUpToDate();
+        : const UpToDate();
   }
 
   Future<AppVersion?> _currentVersion() async {
@@ -78,8 +78,8 @@ class UpdateChecker {
       final info = await PackageInfo.fromPlatform();
       return AppVersion.tryParse(info.version);
     } catch (_) {
-      // En algún entorno sin plataforma nativa detrás (tests, web sin build
-      // completo) esto puede fallar: se trata como comprobación fallida.
+      // Sin plataforma nativa detrás (tests, web sin build completo) esto
+      // falla: cuenta como comprobación fallida.
       return null;
     }
   }
@@ -121,8 +121,8 @@ class UpdateChecker {
       await _store(release);
       return release;
     } catch (_) {
-      // Sin red, timeout, JSON roto o SharedPreferences no disponible: es
-      // información secundaria, así que no se propaga como error.
+      // Sin red, timeout, JSON roto o almacenamiento no disponible: es
+      // información secundaria y no se propaga como error.
       return null;
     }
   }
@@ -134,7 +134,7 @@ class UpdateChecker {
       if (raw == null) return null;
       return _LatestRelease.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     } catch (_) {
-      // Caché de un esquema antiguo o corrupta: como si no existiera.
+      // Caché corrupta o de un esquema antiguo: como si no existiera.
       return null;
     }
   }

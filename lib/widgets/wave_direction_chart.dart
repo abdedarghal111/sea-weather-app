@@ -1,21 +1,23 @@
+// Gráfica de dirección del oleaje con su explicación para el usuario.
+
 import 'package:flutter/material.dart';
 
 import 'direction_arrows_chart.dart';
 
 /// Dirección de las olas hora a hora o día a día. [directions] son grados de
-/// los que VIENEN las olas; las flechas apuntan hacia dónde avanzan.
+/// los que vienen las olas; las flechas apuntan hacia dónde avanzan.
 class WaveDirectionChart extends StatelessWidget {
   final List<DateTime> times;
   final List<double?> directions;
   final String Function(DateTime time) labelBuilder;
-  final double? highlightX;
+  final double? highlightPosition;
 
   const WaveDirectionChart({
     super.key,
     required this.times,
     required this.directions,
     required this.labelBuilder,
-    this.highlightX,
+    this.highlightPosition,
   });
 
   @override
@@ -29,6 +31,6 @@ class WaveDirectionChart extends StatelessWidget {
         times: times,
         directions: directions,
         labelBuilder: labelBuilder,
-        highlightX: highlightX,
+        highlightPosition: highlightPosition,
       );
 }

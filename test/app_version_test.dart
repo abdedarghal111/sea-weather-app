@@ -1,3 +1,5 @@
+// Pruebas del parseo y la comparación de versiones de la app.
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sea_weather_app/models/app_version.dart';
 

@@ -1,22 +1,24 @@
+// Pantalla para añadir una localidad, por búsqueda de nombre o por mapa.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../models/spot.dart';
+import '../models/location.dart';
+import '../services/api_error.dart';
 import '../services/geocoding_api.dart';
-import '../services/spots_repository.dart';
-import '../services/weather_api_error.dart';
+import '../services/locations_repository.dart';
 
-class AddSpotScreen extends StatefulWidget {
-  const AddSpotScreen({super.key});
+class AddLocationScreen extends StatefulWidget {
+  const AddLocationScreen({super.key});
 
   @override
-  State<AddSpotScreen> createState() => _AddSpotScreenState();
+  State<AddLocationScreen> createState() => _AddLocationScreenState();
 }
 
-class _AddSpotScreenState extends State<AddSpotScreen> with SingleTickerProviderStateMixin {
-  final _repository = SpotsRepository();
+class _AddLocationScreenState extends State<AddLocationScreen> with SingleTickerProviderStateMixin {
+  final _repository = LocationsRepository();
   late final TabController _tabController;
 
   final _searchController = TextEditingController();
@@ -50,15 +52,14 @@ class _AddSpotScreenState extends State<AddSpotScreen> with SingleTickerProvider
       final results = await GeocodingApi.search(_searchController.text);
       setState(() {
         _results = results;
-        // El buscador solo indexa poblaciones: playas, lagos y embalses no
-        // aparecen por nombre, y sin este aviso la lista se quedaba vacía sin
-        // explicar por qué.
+        // El buscador solo indexa poblaciones: sin este aviso, buscar una
+        // playa o un embalse deja la lista vacía sin explicación.
         _searchError = results.isEmpty && _searchController.text.trim().isNotEmpty
             ? 'Sin resultados. El buscador solo encuentra pueblos y ciudades: '
                 'para una playa, cala, lago o embalse, usa la pestaña Mapa.'
             : null;
       });
-    } on WeatherApiException catch (error) {
+    } on ApiException catch (error) {
       setState(() => _searchError = error.message);
     } catch (_) {
       setState(() => _searchError = 'No se pudo buscar. Comprueba tu conexión.');
@@ -67,11 +68,11 @@ class _AddSpotScreenState extends State<AddSpotScreen> with SingleTickerProvider
     }
   }
 
-  Future<void> _saveSpot(String name, double latitude, double longitude) async {
+  Future<void> _saveLocation(String name, double latitude, double longitude) async {
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await _repository.addSpot(Spot(
+      await _repository.addLocation(Location(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: name,
         latitude: latitude,
@@ -80,7 +81,7 @@ class _AddSpotScreenState extends State<AddSpotScreen> with SingleTickerProvider
       navigator.pop(true);
     } catch (_) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('No se pudo guardar la cala.')),
+        const SnackBar(content: Text('No se pudo guardar la localidad.')),
       );
     }
   }
@@ -89,7 +90,7 @@ class _AddSpotScreenState extends State<AddSpotScreen> with SingleTickerProvider
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Añadir cala, playa o zona'),
+        title: const Text('Añadir localidad'),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -119,7 +120,7 @@ class _AddSpotScreenState extends State<AddSpotScreen> with SingleTickerProvider
                 child: TextField(
                   controller: _searchController,
                   decoration: const InputDecoration(
-                    labelText: 'Nombre de la playa o cala',
+                    labelText: 'Nombre de la localidad',
                     border: OutlineInputBorder(),
                   ),
                   onSubmitted: (_) => _search(),
@@ -144,7 +145,7 @@ class _AddSpotScreenState extends State<AddSpotScreen> with SingleTickerProvider
               return ListTile(
                 leading: const FaIcon(FontAwesomeIcons.locationDot),
                 title: Text(result.label),
-                onTap: () => _saveSpot(result.label, result.latitude, result.longitude),
+                onTap: () => _saveLocation(result.label, result.latitude, result.longitude),
               );
             },
           ),
@@ -166,7 +167,7 @@ class _AddSpotScreenState extends State<AddSpotScreen> with SingleTickerProvider
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.sea_weather_app',
+                userAgentPackageName: 'es.abderra.sea_weather_app',
               ),
               if (_tappedPoint != null)
                 MarkerLayer(markers: [
@@ -196,7 +197,7 @@ class _AddSpotScreenState extends State<AddSpotScreen> with SingleTickerProvider
               FilledButton(
                 onPressed: _tappedPoint == null || _mapNameController.text.trim().isEmpty
                     ? null
-                    : () => _saveSpot(
+                    : () => _saveLocation(
                           _mapNameController.text.trim(),
                           _tappedPoint!.latitude,
                           _tappedPoint!.longitude,

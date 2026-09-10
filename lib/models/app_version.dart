@@ -1,17 +1,17 @@
-/// Una versión semántica (`1.2.3`) comparable con otra. Existe porque las
-/// versiones no se pueden comparar como texto: `"1.10.0"` es *menor* que
-/// `"1.9.0"` alfabéticamente, pero mayor como versión.
+// Versión semántica de la app, comparable numéricamente.
+
+/// Versión semántica (`1.2.3`) comparable con otra. Comparar como texto no
+/// vale: `"1.10.0"` es menor que `"1.9.0"` alfabéticamente.
 class AppVersion implements Comparable<AppVersion> {
-  /// Números de la versión, de más significativo a menos. Puede tener menos
+  /// Números de la versión, de más significativo a menos. Puede haber menos
   /// de tres si el origen no los trae (`v2` es `[2]`).
   final List<int> parts;
 
   const AppVersion(this.parts);
 
-  /// Acepta lo que devuelven tanto el tag de GitHub (`v1.2.3`) como
-  /// `pubspec.yaml` (`1.2.3+4`). Se ignora el build (`+4`) y cualquier
-  /// sufijo de pre-release (`-beta`), que no participan en el orden.
-  /// Devuelve `null` si no hay ningún número que comparar.
+  /// Acepta el tag de GitHub (`v1.2.3`) y `pubspec.yaml` (`1.2.3+4`). El
+  /// build (`+4`) y el sufijo de pre-release (`-beta`) se ignoran. Devuelve
+  /// `null` si no hay ningún número que comparar.
   static AppVersion? tryParse(String raw) {
     var text = raw.trim();
     if (text.startsWith('v') || text.startsWith('V')) text = text.substring(1);
@@ -26,8 +26,8 @@ class AppVersion implements Comparable<AppVersion> {
     return parts.isEmpty ? null : AppVersion(parts);
   }
 
-  /// Compara hueco a hueco tratando los que faltan como cero, para que
-  /// `1.2` y `1.2.0` sean la misma versión.
+  /// Compara parte a parte tratando las que faltan como cero, para que `1.2`
+  /// y `1.2.0` sean la misma versión.
   @override
   int compareTo(AppVersion other) {
     final length = parts.length > other.parts.length ? parts.length : other.parts.length;

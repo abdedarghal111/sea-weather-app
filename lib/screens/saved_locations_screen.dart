@@ -1,51 +1,55 @@
+// Pantalla inicial: localidades guardadas con su resumen de valoraciones.
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../models/beach_conditions.dart';
-import '../models/spot.dart';
-import '../models/spot_conditions_bundle.dart';
-import '../services/conditions_cache.dart';
-import '../services/spots_repository.dart';
-import '../services/weather_api_error.dart';
+import '../models/location.dart';
+import '../models/location_forecast.dart';
+import '../models/weather_snapshot.dart';
+import '../services/api_error.dart';
+import '../services/forecast_cache.dart';
+import '../services/locations_repository.dart';
 import '../widgets/update_banner.dart';
-import 'add_spot_screen.dart';
-import 'spot_detail_screen.dart';
+import 'add_location_screen.dart';
+import 'location_detail_screen.dart';
 
-class SpotsListScreen extends StatefulWidget {
-  const SpotsListScreen({super.key});
+class SavedLocationsScreen extends StatefulWidget {
+  const SavedLocationsScreen({super.key});
 
   @override
-  State<SpotsListScreen> createState() => _SpotsListScreenState();
+  State<SavedLocationsScreen> createState() => _SavedLocationsScreenState();
 }
 
-class _SpotsListScreenState extends State<SpotsListScreen> {
-  final _repository = SpotsRepository();
-  final _cache = ConditionsCache();
-  late Future<List<Spot>> _spotsFuture;
+class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
+  final _repository = LocationsRepository();
+  final _cache = ForecastCache();
+  late Future<List<Location>> _locationsFuture;
 
   @override
   void initState() {
     super.initState();
-    _spotsFuture = _repository.loadSpots();
+    _locationsFuture = _repository.loadLocations();
   }
 
-  /// Un Future por cala, creado una sola vez. Si se crearan dentro del
-  /// `itemBuilder`, cada rebuild o cada scroll relanzaría la consulta.
-  final _conditionFutures = <String, Future<SpotConditionsBundle>>{};
+  /// Un Future por localidad, creado una sola vez: dentro del `itemBuilder`
+  /// cada rebuild o cada scroll relanzaría la consulta.
+  final _forecastFutures = <String, Future<LocationForecast>>{};
 
-  Future<SpotConditionsBundle> _conditionsFor(Spot spot) =>
-      _conditionFutures.putIfAbsent(spot.cacheKey, () => _cache.getConditions(spot));
+  Future<LocationForecast> _forecastFor(Location location) => _forecastFutures.putIfAbsent(
+        location.coordinatesKey,
+        () => _cache.forecastFor(location),
+      );
 
   void _reload() {
     setState(() {
-      _conditionFutures.clear();
-      _spotsFuture = _repository.loadSpots();
+      _forecastFutures.clear();
+      _locationsFuture = _repository.loadLocations();
     });
   }
 
-  Future<void> _openAddSpot() async {
+  Future<void> _openAddLocation() async {
     final added = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => const AddSpotScreen()),
+      MaterialPageRoute(builder: (_) => const AddLocationScreen()),
     );
     if (added == true) _reload();
   }
@@ -53,17 +57,17 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Buscar cala, playa o zona')),
+      appBar: AppBar(title: const Text('Tus localidades')),
       floatingActionButton: FloatingActionButton(
-        onPressed: _openAddSpot,
+        onPressed: _openAddLocation,
         child: const FaIcon(FontAwesomeIcons.plus),
       ),
       body: Column(
         children: [
           const UpdateBanner(),
           Expanded(
-            child: FutureBuilder<List<Spot>>(
-              future: _spotsFuture,
+            child: FutureBuilder<List<Location>>(
+              future: _locationsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -78,7 +82,7 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
                           const FaIcon(FontAwesomeIcons.triangleExclamation, size: 48),
                           const SizedBox(height: 16),
                           const Text(
-                            'No se pudieron cargar tus calas y playas guardadas.',
+                            'No se pudieron cargar tus localidades guardadas.',
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 16),
@@ -92,8 +96,8 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
                     ),
                   );
                 }
-                final spots = snapshot.data ?? [];
-                if (spots.isEmpty) {
+                final locations = snapshot.data ?? [];
+                if (locations.isEmpty) {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -103,14 +107,14 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
                           const FaIcon(FontAwesomeIcons.umbrellaBeach, size: 64),
                           const SizedBox(height: 16),
                           const Text(
-                            'Todavía no tienes ninguna cala o playa guardada',
+                            'Todavía no tienes ninguna localidad guardada',
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 16),
                           FilledButton.icon(
-                            onPressed: _openAddSpot,
+                            onPressed: _openAddLocation,
                             icon: const FaIcon(FontAwesomeIcons.plus),
-                            label: const Text('Añadir tu primera cala'),
+                            label: const Text('Añadir tu primera localidad'),
                           ),
                         ],
                       ),
@@ -120,23 +124,23 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(12),
-                  itemCount: spots.length,
+                  itemCount: locations.length,
                   itemBuilder: (context, index) {
-                    final spot = spots[index];
+                    final location = locations[index];
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(12),
-                        title: Text(spot.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: FutureBuilder<SpotConditionsBundle>(
-                          future: _conditionsFor(spot),
+                        title: Text(location.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: FutureBuilder<LocationForecast>(
+                          future: _forecastFor(location),
                           builder: (context, snap) {
                             if (snap.hasError) {
                               final error = snap.error;
                               return Padding(
                                 padding: const EdgeInsets.only(top: 8),
                                 child: Text(
-                                  error is WeatherApiException
+                                  error is ApiException
                                       ? error.message
                                       : 'No se pudo obtener el tiempo',
                                 ),
@@ -148,21 +152,21 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
                                 child: Text('Cargando...'),
                               );
                             }
-                            final conditions = snap.data!.current;
-                            final agua = conditions.rateWaterClarity().level;
-                            final playa = conditions.ratePlayaRemovida().level;
-                            final lluvia = conditions.rateRain().level;
+                            final weather = snap.data!.now;
+                            final waterClarity = weather.rateWaterClarity().level;
+                            final shoreDisturbance = weather.rateShoreDisturbance().level;
+                            final rain = weather.rateRain().level;
                             return Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Wrap(
                                 spacing: 12,
                                 runSpacing: 4,
                                 children: [
-                                  _indicator(agua.waterClarityTitle, agua),
-                                  _indicator(playa.playaRemovidaShortLabel, playa),
-                                  _indicator('Surf', conditions.rateSurf().level),
-                                  _indicator('Sol', conditions.rateSun().level),
-                                  _indicator(lluvia.rainTitle, lluvia),
+                                  _ratingChip(waterClarity.waterClarityTitle, waterClarity),
+                                  _ratingChip(shoreDisturbance.shoreDisturbanceShortLabel, shoreDisturbance),
+                                  _ratingChip('Surf', weather.rateSurf().level),
+                                  _ratingChip('Sol', weather.rateSun().level),
+                                  _ratingChip(rain.rainTitle, rain),
                                 ],
                               ),
                             );
@@ -173,17 +177,17 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
                           onPressed: () async {
                             final messenger = ScaffoldMessenger.of(context);
                             try {
-                              await _repository.removeSpot(spot.id);
+                              await _repository.removeLocation(location.id);
                               _reload();
                             } catch (_) {
                               messenger.showSnackBar(
-                                const SnackBar(content: Text('No se pudo eliminar la cala.')),
+                                const SnackBar(content: Text('No se pudo eliminar la localidad.')),
                               );
                             }
                           },
                         ),
                         onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => SpotDetailScreen(spot: spot)),
+                          MaterialPageRoute(builder: (_) => LocationDetailScreen(location: location)),
                         ),
                       ),
                     );
@@ -197,11 +201,11 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
     );
   }
 
-  Widget _indicator(String label, RatingLevel level) {
+  Widget _ratingChip(String label, RatingLevel level) {
     final (icon, color) = switch (level) {
       RatingLevel.veryGood => (FontAwesomeIcons.circleCheck, Colors.green),
       RatingLevel.good => (FontAwesomeIcons.circleCheck, Colors.lightGreen),
-      RatingLevel.ok => (FontAwesomeIcons.triangleExclamation, Colors.amber),
+      RatingLevel.fair => (FontAwesomeIcons.triangleExclamation, Colors.amber),
       RatingLevel.bad => (FontAwesomeIcons.circleXmark, Colors.deepOrange),
       RatingLevel.veryBad => (FontAwesomeIcons.ban, Colors.red),
     };

@@ -1,12 +1,14 @@
+// Tarjeta con el valor actual de una medida y su icono.
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-class ConditionTile extends StatelessWidget {
+class MeasurementTile extends StatelessWidget {
   final FaIconData icon;
   final String label;
   final String value;
 
-  const ConditionTile({super.key, required this.icon, required this.label, required this.value});
+  const MeasurementTile({super.key, required this.icon, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
