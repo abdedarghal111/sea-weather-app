@@ -6,6 +6,7 @@ import '../models/spot.dart';
 import '../models/spot_conditions_bundle.dart';
 import '../services/conditions_cache.dart';
 import '../services/spots_repository.dart';
+import '../services/weather_api_error.dart';
 import 'add_spot_screen.dart';
 import 'spot_detail_screen.dart';
 
@@ -126,9 +127,14 @@ class _SpotsListScreenState extends State<SpotsListScreen> {
                     future: _conditionsFor(spot),
                     builder: (context, snap) {
                       if (snap.hasError) {
-                        return const Padding(
-                          padding: EdgeInsets.only(top: 8),
-                          child: Text('No se pudo obtener el tiempo'),
+                        final error = snap.error;
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            error is WeatherApiException
+                                ? error.message
+                                : 'No se pudo obtener el tiempo',
+                          ),
                         );
                       }
                       if (!snap.hasData) {
