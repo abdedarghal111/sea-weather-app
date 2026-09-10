@@ -12,6 +12,16 @@ extension RatingLevelLabel on RatingLevel {
       };
 }
 
+extension RainTitle on RatingLevel {
+  String get rainTitle => switch (this) {
+        RatingLevel.veryGood => 'Sin lluvia',
+        RatingLevel.good => 'Casi sin lluvia',
+        RatingLevel.ok => 'Puede llover',
+        RatingLevel.bad => 'Va a llover',
+        RatingLevel.veryBad => 'Lluvia segura',
+      };
+}
+
 extension WaterClarityTitle on RatingLevel {
   String get waterClarityTitle => switch (this) {
         RatingLevel.veryGood => 'Agua cristalina',
@@ -40,6 +50,7 @@ extension PlayaRemovidaTitle on RatingLevel {
       };
 }
 
+const rainSeriesTitle = 'Lluvia prevista';
 const waterClaritySeriesTitle = 'Agua clara u opaca';
 const playaRemovidaSeriesTitle = 'Playa tranquila o removida';
 

@@ -281,7 +281,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
         );
       case 4:
         return RatingTimeSeriesChart(
-          title: 'Lluvia',
+          title: rainSeriesTitle,
           times: times,
           scores: points.map((p) => p.conditions.rateRain().score).toList(),
           labelBuilder: labelBuilder,
@@ -420,6 +420,9 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     );
   }
 
+  Widget _rainGauge(BeachRating rating) =>
+      RatingGauge(title: rating.level.rainTitle, rating: rating);
+
   Widget _waterClarityGauge(BeachRating rating) =>
       RatingGauge(title: rating.level.waterClarityTitle, rating: rating);
 
@@ -441,7 +444,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
         const SizedBox(height: 16),
         RatingGauge(title: 'Sol', rating: conditions.rateSun()),
         const SizedBox(height: 16),
-        RatingGauge(title: 'Lluvia', rating: conditions.rateRain()),
+        _rainGauge(conditions.rateRain()),
         const SizedBox(height: 16),
         Text('Todos los datos', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
