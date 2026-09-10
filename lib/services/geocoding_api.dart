@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'weather_api_error.dart';
+
 class GeocodingResult {
   final String name;
   final String? admin1;
@@ -28,20 +30,48 @@ class GeocodingApi {
       'https://geocoding-api.open-meteo.com/v1/search'
       '?name=${Uri.encodeQueryComponent(query.trim())}&count=5&language=es&format=json',
     );
-    final response = await http.get(uri);
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final http.Response response;
+    try {
+      response = await http.get(uri).timeout(const Duration(seconds: 15));
+    } catch (error) {
+      throw translateTransportError(error);
+    }
+
+    Map<String, dynamic>? body;
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) body = decoded;
+    } catch (_) {
+      // Cuerpo no JSON: se trata como respuesta inesperada más abajo.
+    }
+
+    if (response.statusCode != 200 || body == null || body['error'] == true) {
+      throw translateApiError(response.statusCode, body?['reason'] as String?);
+    }
+
+    // Sin coincidencias el buscador omite la clave "results" en vez de
+    // devolver una lista vacía.
     final results = body['results'] as List<dynamic>?;
     if (results == null) return [];
 
-    return results.map((r) {
-      final map = r as Map<String, dynamic>;
-      return GeocodingResult(
-        name: map['name'] as String,
-        admin1: map['admin1'] as String?,
-        country: map['country'] as String?,
-        latitude: (map['latitude'] as num).toDouble(),
-        longitude: (map['longitude'] as num).toDouble(),
-      );
-    }).toList();
+    // Una entrada sin nombre o sin coordenadas se descarta en vez de romper
+    // la búsqueda entera.
+    return results
+        .whereType<Map<String, dynamic>>()
+        .map((map) {
+          final name = map['name'];
+          final latitude = map['latitude'];
+          final longitude = map['longitude'];
+          if (name is! String || latitude is! num || longitude is! num) return null;
+          return GeocodingResult(
+            name: name,
+            admin1: map['admin1'] as String?,
+            country: map['country'] as String?,
+            latitude: latitude.toDouble(),
+            longitude: longitude.toDouble(),
+          );
+        })
+        .whereType<GeocodingResult>()
+        .toList();
   }
 }
